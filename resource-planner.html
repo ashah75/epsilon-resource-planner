@@ -394,6 +394,44 @@
             margin-bottom: 0.25rem;
         }
 
+        /* Draggable project styling */
+        .project-item[draggable="true"] {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .project-item[draggable="true"]::before {
+            content: '⋮⋮';
+            position: absolute;
+            left: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        .project-item[draggable="true"]:hover::before {
+            opacity: 0.5;
+        }
+
+        .project-item[draggable="true"]:hover {
+            background: var(--hover);
+            border-color: var(--accent-primary);
+        }
+
+        .project-item[draggable="true"]:active {
+            cursor: grabbing !important;
+        }
+
+        /* Make sure delete icon stays on top */
+        .project-item .delete-icon {
+            z-index: 10;
+            position: relative;
+        }
+
         .person-role, .client-count, .project-client {
             font-size: 0.85rem;
             color: var(--text-secondary);
@@ -1293,7 +1331,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     </div>
                     <div class="group-content collapsed" id="${groupId}">
                         ${projects.map(project => `
-                            <div class="project-item">
+                            <div class="project-item" 
+                                 draggable="true"
+                                 data-project-id="${project.id}"
+                                 ondragstart="handleProjectDragStart(event)"
+                                 ondragend="handleProjectDragEnd(event)"
+                                 style="cursor: grab;">
                                 <div class="item-content">
                                     <div class="project-name">${project.name}</div>
                                     <div class="project-client">${clientName}</div>
@@ -1615,16 +1658,33 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
 
         // Drag and Drop handlers
         let draggedAssignmentId = null;
+        let draggedProjectId = null;
 
+        // Assignment drag handlers (existing functionality)
         function handleDragStart(event) {
             draggedAssignmentId = event.target.dataset.assignmentId;
             event.target.classList.add('dragging');
             event.dataTransfer.effectAllowed = 'move';
         }
 
+        // Project drag handlers (NEW - for dragging projects to timeline)
+        function handleProjectDragStart(event) {
+            draggedProjectId = event.target.dataset.projectId;
+            draggedAssignmentId = null; // Clear assignment drag
+            event.target.style.opacity = '0.5';
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('text/plain', draggedProjectId); // For compatibility
+        }
+
+        function handleProjectDragEnd(event) {
+            event.target.style.opacity = '1';
+            draggedProjectId = null;
+        }
+
         function handleDragOver(event) {
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
+            // Show different cursor based on what's being dragged
+            event.dataTransfer.dropEffect = draggedProjectId ? 'copy' : 'move';
             const cell = event.currentTarget;
             if (!cell.classList.contains('drop-target')) {
                 cell.classList.add('drop-target');
@@ -1639,10 +1699,32 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             event.preventDefault();
             event.currentTarget.classList.remove('drop-target');
             
-            if (!draggedAssignmentId) return;
-            
             const targetPersonId = parseInt(event.currentTarget.dataset.personId);
             const targetPeriod = parseInt(event.currentTarget.dataset.period);
+            
+            // Handle PROJECT drop - open modal with prefilled data
+            if (draggedProjectId) {
+                const { startDate: periodStart } = getPeriodDates(targetPeriod);
+                const defaultEndDate = new Date(periodStart);
+                defaultEndDate.setDate(defaultEndDate.getDate() + 13); // 2 weeks default
+                
+                // Prefill the assignment modal
+                document.getElementById('assignmentPerson').value = targetPersonId;
+                document.getElementById('assignmentProject').value = draggedProjectId;
+                document.getElementById('assignmentStartDate').value = formatDateForInput(periodStart);
+                document.getElementById('assignmentEndDate').value = formatDateForInput(defaultEndDate);
+                document.getElementById('assignmentPercentage').value = '100';
+                
+                // Reset drag state
+                draggedProjectId = null;
+                
+                // Open modal
+                openModal('assignment');
+                return;
+            }
+            
+            // Handle ASSIGNMENT drop - existing move functionality
+            if (!draggedAssignmentId) return;
             
             // Find the assignment being dragged
             const assignment = data.assignments.find(a => a.id == draggedAssignmentId);
