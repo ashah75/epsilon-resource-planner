@@ -1190,9 +1190,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             <span>${role}</span>
                             <span class="group-count">${people.length}</span>
                         </div>
-                        <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                        <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                     </div>
-                    <div class="group-content" id="${groupId}">
+                    <div class="group-content collapsed" id="${groupId}">
                         ${people.map(person => `
                             <div class="person-item">
                                 <div class="item-content">
@@ -1232,9 +1232,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         <span>All Clients</span>
                         <span class="group-count">${data.clients.length}</span>
                     </div>
-                    <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                    <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                 </div>
-                <div class="group-content" id="${groupId}">
+                <div class="group-content collapsed" id="${groupId}">
                     ${data.clients.map(client => {
                         const projectCount = data.projects.filter(p => p.clientId === client.id).length;
                         return `
@@ -1289,9 +1289,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             <span>${clientName}</span>
                             <span class="group-count">${projects.length}</span>
                         </div>
-                        <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                        <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                     </div>
-                    <div class="group-content" id="${groupId}">
+                    <div class="group-content collapsed" id="${groupId}">
                         ${projects.map(project => `
                             <div class="project-item">
                                 <div class="item-content">
