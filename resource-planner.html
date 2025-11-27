@@ -796,13 +796,13 @@
                 </div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Clients</div>
-                    <div id="clientsList"></div>
+                    <div class="sidebar-title">Projects</div>
+                    <div id="projectsList"></div>
                 </div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Projects</div>
-                    <div id="projectsList"></div>
+                    <div class="sidebar-title">Clients</div>
+                    <div id="clientsList"></div>
                 </div>
             </div>
 
@@ -1221,24 +1221,41 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                 container.innerHTML = '<div class="empty-cell">No clients</div>';
                 return;
             }
-            container.innerHTML = data.clients.map(client => {
-                const projectCount = data.projects.filter(p => p.clientId === client.id).length;
-                return `
-                    <div class="client-item">
-                        <div class="item-content">
-                            <div class="client-name">${client.name}</div>
-                            <div class="client-count">${projectCount} project${projectCount !== 1 ? 's' : ''}</div>
-                        </div>
-                        <div class="delete-icon" onclick="deleteClient(${client.id})" title="Delete ${client.name}">
-                            <svg viewBox="0 0 24 24">
-                                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
-                                <path d="M10 11v6M14 11v6"/>
-                            </svg>
-                        </div>
-                    </div>
-                `;
-            }).join('');
             
+            // Create a single collapsible group for all clients
+            const groupId = 'all-clients';
+            
+            let html = `
+                <div class="group-header" onclick="toggleGroup('${groupId}')">
+                    <div class="group-title">
+                        <span>🏢</span>
+                        <span>All Clients</span>
+                        <span class="group-count">${data.clients.length}</span>
+                    </div>
+                    <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                </div>
+                <div class="group-content" id="${groupId}">
+                    ${data.clients.map(client => {
+                        const projectCount = data.projects.filter(p => p.clientId === client.id).length;
+                        return `
+                            <div class="client-item">
+                                <div class="item-content">
+                                    <div class="client-name">${client.name}</div>
+                                    <div class="client-count">${projectCount} project${projectCount !== 1 ? 's' : ''}</div>
+                                </div>
+                                <div class="delete-icon" onclick="deleteClient(${client.id})" title="Delete ${client.name}">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                        <path d="M10 11v6M14 11v6"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = html;
             updateProjectClientSelect();
         }
 
