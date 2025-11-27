@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #151b24;
+            --bg-tertiary: #1f2937;
+            --accent-primary: #f59e0b;
+            --accent-secondary: #10b981;
+            --accent-tertiary: #3b82f6;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border: #374151;
+            --hover: rgba(245, 158, 11, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-container {
+            flex-shrink: 0;
+        }
+
+        .logo-container img {
+            height: 50px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+
+        .header-text {
+            flex: 1;
+        }
+
+        h1 {
+            font-family: 'Crimson Pro', serif;
+            font-size: 3.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            letter-spacing: 0.02em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        .btn {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-icon {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            position: relative;
+        }
+
+        .btn-icon:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-icon .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            border: 1px solid var(--border);
+        }
+
+        .btn-icon:hover .tooltip {
+            opacity: 1;
+        }
+
+        .btn-icon .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--bg-primary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Collapsible groups */
+        .group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+        }
+
+        .group-header:hover {
+            background: var(--hover);
+            border-color: var(--accent-primary);
+        }
+
+        .group-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .group-count {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-primary);
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .group-toggle {
+            transition: transform 0.2s ease;
+            font-size: 1.2rem;
+        }
+
+        .group-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .group-content {
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+
+        .group-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0;
+        }
+
+        .view-toggle {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.25rem;
+            gap: 0.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .view-toggle button {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .view-toggle button.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+
+        .view-toggle button:hover:not(.active) {
+            background: var(--hover);
+            color: var(--text-primary);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            animation: fadeIn 1s ease-out 0.4s both;
+        }
+
+        .sidebar {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            height: fit-content;
+        }
+
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .person-item, .client-item, .project-item {
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .person-item:hover, .client-item:hover, .project-item:hover {
+            background: var(--hover);
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .item-content {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .delete-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            opacity: 0;
+        }
+
+        .person-item:hover .delete-icon,
+        .client-item:hover .delete-icon,
+        .project-item:hover .delete-icon {
+            opacity: 1;
+        }
+
+        .delete-icon:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            transform: scale(1.1);
+        }
+
+        .delete-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: #ef4444;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .person-name, .client-name, .project-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .person-role, .client-count, .project-client {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .timeline-container {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .timeline-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .week-nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .week-display {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: 200px repeat(6, 1fr);
+            gap: 0;
+            min-width: 1200px;
+        }
+
+        .timeline-header-cell {
+            padding: 1rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .timeline-row {
+            display: contents;
+        }
+
+        .timeline-cell {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            transition: background 0.2s ease;
+        }
+
+        .timeline-cell:first-child {
+            position: sticky;
+            left: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+            font-weight: 600;
+        }
+
+        .timeline-cell:hover:not(:first-child) {
+            background: var(--hover);
+            cursor: pointer;
+        }
+
+        .timeline-cell.drop-target {
+            background: rgba(245, 158, 11, 0.2);
+            border: 2px dashed var(--accent-primary);
+        }
+
+        .assignment {
+            background: linear-gradient(135deg, var(--accent-primary), #f97316);
+            color: var(--bg-primary);
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            cursor: move;
+            transition: all 0.2s ease;
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+        }
+
+        .assignment.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .assignment:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .assignment-project {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .assignment-client {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+
+        .assignment-percentage {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+            padding-top: 0.25rem;
+            border-top: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .assignment-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: rgba(239, 68, 68, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .assignment:hover .assignment-delete {
+            opacity: 1;
+        }
+
+        .assignment-delete:hover {
+            background: #ef4444;
+        }
+
+        .assignment-delete::before {
+            content: '×';
+            color: white;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Heat Map Colors */
+        .heat-0 { background: linear-gradient(135deg, #10b981, #059669) !important; } /* 0-50% */
+        .heat-1 { background: linear-gradient(135deg, #f59e0b, #d97706) !important; } /* 51-99% */
+        .heat-2 { background: linear-gradient(135deg, #ef4444, #dc2626) !important; } /* 100%+ */
+
+        .allocation-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .allocation-ok {
+            background: rgba(16, 185, 129, 0.2);
+            color: #059669;
+            border: 1px solid #059669;
+        }
+
+        .allocation-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #d97706;
+            border: 1px solid #d97706;
+        }
+
+        .allocation-over {
+            background: rgba(239, 68, 68, 0.2);
+            color: #dc2626;
+            border: 1px solid #dc2626;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .person-name-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .heat-map-legend {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .empty-cell {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-align: center;
+            opacity: 0.3;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo-container">
+                    <img src="epsilon-logo.png" alt="Epsilon">
+                </div>
+                <div class="header-text">
+                    <h1>Resource Planner</h1>
+                    <p class="subtitle">Professional Services Team Management</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="btn-group">
+                <button class="btn-icon" onclick="openModal('person')">
+                    <span>👤</span>
+                    <div class="tooltip">Add Person</div>
+                </button>
+                <button class="btn-icon" onclick="openModal('client')">
+                    <span>🏢</span>
+                    <div class="tooltip">Add Client</div>
+                </button>
+                <button class="btn-icon" onclick="openModal('project')">
+                    <span>📊</span>
+                    <div class="tooltip">Add Project</div>
+                </button>
+                <button class="btn-icon" onclick="openModal('assignment')">
+                    <span>📅</span>
+                    <div class="tooltip">Assign to Project</div>
+                </button>
+                <button class="btn-icon" onclick="openModal('upload')">
+                    <span>📤</span>
+                    <div class="tooltip">Upload Data</div>
+                </button>
+                <button class="btn-icon" onclick="exportData()">
+                    <span>📥</span>
+                    <div class="tooltip">Export Data</div>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Team Members</div>
+                    <div id="peopleList"></div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Clients</div>
+                    <div id="clientsList"></div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Projects</div>
+                    <div id="projectsList"></div>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <div class="timeline-title">Timeline View</div>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div class="view-toggle">
+                            <button class="active" onclick="changeTimelineView('biweekly')" id="view-biweekly">2 Weeks</button>
+                            <button onclick="changeTimelineView('monthly')" id="view-monthly">Monthly</button>
+                            <button onclick="changeTimelineView('quarterly')" id="view-quarterly">Quarterly</button>
+                        </div>
+                        <div class="week-nav">
+                            <button class="btn-icon" onclick="changePeriod(-6)" id="prevButton">
+                                <span>←</span>
+                                <div class="tooltip">Previous 3 Months</div>
+                            </button>
+                            <div class="week-display" id="weekDisplay"></div>
+                            <button class="btn-icon" onclick="changePeriod(6)" id="nextButton">
+                                <span>→</span>
+                                <div class="tooltip">Next 3 Months</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="heat-map-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
+                        <span>0-50% Allocated</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
+                        <span>51-99% Allocated</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(135deg, #ef4444, #dc2626);"></div>
+                        <span>100%+ Over-allocated</span>
+                    </div>
+                </div>
+                
+                <div id="timelineGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="personModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Add Team Member</h2>
+            <form onsubmit="addPerson(event)">
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-input" id="personName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <input type="text" class="form-input" id="personRole" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('person')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Person</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="clientModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Add Client</h2>
+            <form onsubmit="addClient(event)">
+                <div class="form-group">
+                    <label class="form-label">Client Name</label>
+                    <input type="text" class="form-input" id="clientName" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('client')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Add Project</h2>
+            <form onsubmit="addProject(event)">
+                <div class="form-group">
+                    <label class="form-label">Project Name</label>
+                    <input type="text" class="form-input" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Client</label>
+                    <select class="form-select" id="projectClient" required>
+                        <option value="">Select a client</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('project')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="assignmentModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Assign to Project</h2>
+            <form onsubmit="addAssignment(event)">
+                <div class="form-group">
+                    <label class="form-label">Team Member</label>
+                    <select class="form-select" id="assignmentPerson" required>
+                        <option value="">Select a person</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project</label>
+                    <select class="form-select" id="assignmentProject" required>
+                        <option value="">Select a project</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">📅 Start Date</label>
+                    <input type="date" class="form-input" id="assignmentStartDate" required>
+                    <small style="color: var(--text-secondary); font-size: 0.85rem;">Assignment start date</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">📅 End Date</label>
+                    <input type="date" class="form-input" id="assignmentEndDate" required>
+                    <small style="color: var(--text-secondary); font-size: 0.85rem;">Assignment end date (inclusive)</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Allocation Percentage</label>
+                    <input type="number" class="form-input" id="assignmentPercentage" min="1" max="100" value="100" required>
+                    <small style="color: var(--text-secondary); font-size: 0.85rem;">Enter 1-100% (e.g., 50 for half-time)</small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('assignment')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="uploadModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h2 class="modal-title">Upload Data</h2>
+            
+            <div style="margin-bottom: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border);">
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--accent-primary);">CSV File Format</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Upload CSV files with the following formats:
+                </p>
+                
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--accent-secondary);">People CSV:</strong>
+                    <pre style="background: var(--bg-primary); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.5rem;">name,role
+John Doe,Senior Consultant
+Jane Smith,Project Manager</pre>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--accent-secondary);">Clients CSV:</strong>
+                    <pre style="background: var(--bg-primary); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.5rem;">name
+Acme Corporation
+Global Tech Inc</pre>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: var(--accent-secondary);">Projects CSV:</strong>
+                    <pre style="background: var(--bg-primary); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.5rem;">name,clientName
+Digital Transformation,Acme Corporation
+Cloud Migration,Global Tech Inc</pre>
+                </div>
+
+                <div>
+                    <strong style="color: var(--accent-secondary);">Assignments CSV:</strong>
+                    <pre style="background: var(--bg-primary); padding: 0.75rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: var(--text-primary); margin-top: 0.5rem;">personName,projectName,startDate,endDate,percentage
+John Doe,Digital Transformation,2026-01-01,2026-01-14,100
+Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem;">
+                        Dates in YYYY-MM-DD format | Percentage is optional (defaults to 100%)
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Upload Type</label>
+                <select class="form-select" id="uploadType">
+                    <option value="csv-people">People</option>
+                    <option value="csv-clients">Clients</option>
+                    <option value="csv-projects">Projects</option>
+                    <option value="csv-assignments">Assignments</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Select CSV File</label>
+                <input type="file" class="form-input" id="uploadFile" accept=".csv" style="cursor: pointer;">
+            </div>
+
+            <div id="uploadStatus" style="margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none;"></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn" onclick="closeModal('upload')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="processUpload()">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // Data structure
+        let data = {
+            people: [],
+            clients: [],
+            projects: [],
+            assignments: []
+        };
+
+        // Timeline configuration - Starting January 1, 2026
+        const START_DATE = new Date(2026, 0, 1); // January 1, 2026
+        let currentPeriodOffset = 0; // Offset in 2-week periods
+        let nextId = { person: 4, client: 3, project: 3 };
+
+        // API Helper Functions
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                alert('Error connecting to server. Make sure the backend is running on http://localhost:5000');
+                throw error;
+            }
+        }
+
+        // Load all data from backend
+        async function loadAllData() {
+            try {
+                const [people, clients, projects, assignments] = await Promise.all([
+                    apiCall('/people'),
+                    apiCall('/clients'),
+                    apiCall('/projects'),
+                    apiCall('/assignments')
+                ]);
+                
+                data.people = people.map(p => ({ id: p.id, name: p.name, role: p.role }));
+                data.clients = clients.map(c => ({ id: c.id, name: c.name }));
+                data.projects = projects.map(p => ({ id: p.id, name: p.name, clientId: p.client_id }));
+                data.assignments = assignments.map(a => ({ 
+                    id: a.id,
+                    personId: a.person_id, 
+                    projectId: a.project_id, 
+                    startDate: a.start_date,
+                    endDate: a.end_date,
+                    percentage: a.percentage || 100
+                }));
+                
+                renderAll();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+            }
+        }
+
+        // Helper function to get which periods a date range spans
+        function getPeriodsForDateRange(startDate, endDate) {
+            const periods = new Set();
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            let currentPeriod = Math.floor((start - START_DATE) / (14 * 24 * 60 * 60 * 1000));
+            const endPeriod = Math.floor((end - START_DATE) / (14 * 24 * 60 * 60 * 1000));
+            
+            for (let p = currentPeriod; p <= endPeriod; p++) {
+                periods.add(p);
+            }
+            
+            return Array.from(periods);
+        }
+
+        // Check if a date range overlaps with a period
+        function dateRangeOverlapsPeriod(startDate, endDate, period) {
+            const { startDate: periodStart, endDate: periodEnd } = getPeriodDates(period);
+            const assignStart = new Date(startDate);
+            const assignEnd = new Date(endDate);
+            
+            // Check if ranges overlap
+            return assignStart <= periodEnd && assignEnd >= periodStart;
+        }
+
+        // Calculate total allocation for a person in a period
+        function calculateAllocation(personId, period) {
+            return data.assignments
+                .filter(a => a.personId === personId && dateRangeOverlapsPeriod(a.startDate, a.endDate, period))
+                .reduce((sum, a) => sum + (a.percentage || 100), 0);
+        }
+
+        // Get heat map class based on allocation
+        function getHeatMapClass(allocation) {
+            if (allocation >= 100) return 'heat-2';
+            if (allocation > 50) return 'heat-1';
+            return 'heat-0';
+        }
+
+        // Format date as YYYY-MM-DD for input fields
+        function formatDateForInput(date) {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Helper function to get date range for a period
+        function getPeriodDates(periodOffset) {
+            const startDate = new Date(START_DATE);
+            startDate.setDate(startDate.getDate() + (periodOffset * 14)); // 14 days = 2 weeks
+            
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 13); // 13 days later (14 days total)
+            
+            return { startDate, endDate };
+        }
+
+        // Format date as "Jan 1"
+        function formatDate(date) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${months[date.getMonth()]} ${date.getDate()}`;
+        }
+
+        // Format date range as "Jan 1 - Jan 14"
+        function formatDateRange(startDate, endDate) {
+            return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+        }
+
+        // Initialize
+        async function init() {
+            await loadAllData();
+            updateWeekDisplay();
+        }
+
+        // Render functions
+        function renderPeople() {
+            const container = document.getElementById('peopleList');
+            if (data.people.length === 0) {
+                container.innerHTML = '<div class="empty-cell">No team members</div>';
+                return;
+            }
+            
+            // Group people by role
+            const byRole = {};
+            data.people.forEach(person => {
+                if (!byRole[person.role]) {
+                    byRole[person.role] = [];
+                }
+                byRole[person.role].push(person);
+            });
+            
+            let html = '';
+            Object.keys(byRole).sort().forEach(role => {
+                const people = byRole[role];
+                const groupId = 'role-' + role.replace(/\s+/g, '-').toLowerCase();
+                
+                html += `
+                    <div class="group-header" onclick="toggleGroup('${groupId}')">
+                        <div class="group-title">
+                            <span>👥</span>
+                            <span>${role}</span>
+                            <span class="group-count">${people.length}</span>
+                        </div>
+                        <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                    </div>
+                    <div class="group-content" id="${groupId}">
+                        ${people.map(person => `
+                            <div class="person-item">
+                                <div class="item-content">
+                                    <div class="person-name">${person.name}</div>
+                                    <div class="person-role">${person.role}</div>
+                                </div>
+                                <div class="delete-icon" onclick="deletePerson(${person.id})" title="Delete ${person.name}">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                        <path d="M10 11v6M14 11v6"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateAssignmentSelects();
+        }
+
+        function renderClients() {
+            const container = document.getElementById('clientsList');
+            if (data.clients.length === 0) {
+                container.innerHTML = '<div class="empty-cell">No clients</div>';
+                return;
+            }
+            container.innerHTML = data.clients.map(client => {
+                const projectCount = data.projects.filter(p => p.clientId === client.id).length;
+                return `
+                    <div class="client-item">
+                        <div class="item-content">
+                            <div class="client-name">${client.name}</div>
+                            <div class="client-count">${projectCount} project${projectCount !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div class="delete-icon" onclick="deleteClient(${client.id})" title="Delete ${client.name}">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                <path d="M10 11v6M14 11v6"/>
+                            </svg>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateProjectClientSelect();
+        }
+
+        function renderProjects() {
+            const container = document.getElementById('projectsList');
+            if (data.projects.length === 0) {
+                container.innerHTML = '<div class="empty-cell">No projects</div>';
+                return;
+            }
+            
+            // Group projects by client
+            const byClient = {};
+            data.projects.forEach(project => {
+                const client = data.clients.find(c => c.id === project.clientId);
+                const clientName = client ? client.name : 'Unknown Client';
+                if (!byClient[clientName]) {
+                    byClient[clientName] = [];
+                }
+                byClient[clientName].push(project);
+            });
+            
+            let html = '';
+            Object.keys(byClient).sort().forEach(clientName => {
+                const projects = byClient[clientName];
+                const groupId = 'client-' + clientName.replace(/\s+/g, '-').toLowerCase();
+                
+                html += `
+                    <div class="group-header" onclick="toggleGroup('${groupId}')">
+                        <div class="group-title">
+                            <span>🏢</span>
+                            <span>${clientName}</span>
+                            <span class="group-count">${projects.length}</span>
+                        </div>
+                        <span class="group-toggle" id="${groupId}-toggle">▼</span>
+                    </div>
+                    <div class="group-content" id="${groupId}">
+                        ${projects.map(project => `
+                            <div class="project-item">
+                                <div class="item-content">
+                                    <div class="project-name">${project.name}</div>
+                                    <div class="project-client">${clientName}</div>
+                                </div>
+                                <div class="delete-icon" onclick="deleteProject(${project.id})" title="Delete ${project.name}">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                        <path d="M10 11v6M14 11v6"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateAssignmentSelects();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timelineGrid');
+            
+            // Determine period configuration based on view
+            let numPeriods, periodLength, periodLengthDays;
+            if (timelineView === 'monthly') {
+                numPeriods = 6; // 6 months
+                periodLength = 'month';
+                periodLengthDays = 30; // Approximate
+            } else if (timelineView === 'quarterly') {
+                numPeriods = 4; // 4 quarters
+                periodLength = 'quarter';
+                periodLengthDays = 91; // Approximate
+            } else {
+                numPeriods = 6; // 6 bi-weekly periods
+                periodLength = 'biweekly';
+                periodLengthDays = 14;
+            }
+            
+            // Generate headers with actual dates
+            const headers = ['Person'];
+            for (let i = 0; i < numPeriods; i++) {
+                if (timelineView === 'monthly') {
+                    const date = new Date(START_DATE);
+                    date.setMonth(date.getMonth() + currentPeriodOffset / 2 + i);
+                    const monthName = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+                    headers.push(monthName);
+                } else if (timelineView === 'quarterly') {
+                    const baseQuarter = Math.floor(currentPeriodOffset / 6);
+                    const quarter = baseQuarter + i;
+                    const year = 2026 + Math.floor(quarter / 4);
+                    const q = (quarter % 4) + 1;
+                    headers.push(`Q${q} ${year}`);
+                } else {
+                    const { startDate, endDate } = getPeriodDates(currentPeriodOffset + i);
+                    headers.push(formatDateRange(startDate, endDate));
+                }
+            }
+            
+            let html = '<div class="timeline-grid">';
+            
+            // Headers
+            headers.forEach(header => {
+                html += `<div class="timeline-header-cell">${header}</div>`;
+            });
+
+            // Rows
+            if (data.people.length === 0) {
+                html += `<div class="timeline-cell" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <div class="empty-cell">Add team members to start planning</div>
+                </div>`;
+            } else {
+                data.people.forEach(person => {
+                    html += '<div class="timeline-row">';
+                    
+                    // Person name cell with allocation status
+                    html += `<div class="timeline-cell">
+                        <div class="person-name-container">
+                            <span>${person.name}</span>
+                        </div>
+                    </div>`;
+                    
+                    for (let period = 0; period < numPeriods; period++) {
+                        let actualPeriod;
+                        let periodStartDate, periodEndDate;
+                        
+                        if (timelineView === 'monthly') {
+                            // Each period is a month
+                            actualPeriod = currentPeriodOffset / 2 + period;
+                            periodStartDate = new Date(START_DATE);
+                            periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
+                            periodEndDate = new Date(periodStartDate);
+                            periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+                            periodEndDate.setDate(0); // Last day of month
+                        } else if (timelineView === 'quarterly') {
+                            // Each period is a quarter (3 months)
+                            const baseQuarter = Math.floor(currentPeriodOffset / 6);
+                            const quarter = baseQuarter + period;
+                            actualPeriod = quarter * 6; // Convert to biweekly periods
+                            periodStartDate = new Date(2026, quarter * 3, 1);
+                            periodEndDate = new Date(2026, (quarter + 1) * 3, 0);
+                        } else {
+                            // Biweekly (default)
+                            actualPeriod = period + currentPeriodOffset;
+                            const dates = getPeriodDates(actualPeriod);
+                            periodStartDate = dates.startDate;
+                            periodEndDate = dates.endDate;
+                        }
+                        
+                        // Filter assignments that overlap with this period
+                        const assignments = data.assignments.filter(a => {
+                            if (a.personId !== person.id) return false;
+                            const assignStart = new Date(a.startDate);
+                            const assignEnd = new Date(a.endDate);
+                            return assignStart <= periodEndDate && assignEnd >= periodStartDate;
+                        });
+                        
+                        const totalAllocation = assignments.reduce((sum, a) => sum + (a.percentage || 100), 0);
+                        const heatClass = getHeatMapClass(totalAllocation);
+                        
+                        html += `<div class="timeline-cell ${totalAllocation > 0 ? heatClass : ''}" 
+                                     data-person-id="${person.id}" 
+                                     data-period="${actualPeriod}"
+                                     ondrop="handleDrop(event)" 
+                                     ondragover="handleDragOver(event)"
+                                     ondragleave="handleDragLeave(event)">`;
+                        
+                        if (assignments.length > 0) {
+                            assignments.forEach(assignment => {
+                                const project = data.projects.find(p => p.id === assignment.projectId);
+                                const client = data.clients.find(c => c.id === project?.clientId);
+                                const startDate = new Date(assignment.startDate);
+                                const endDate = new Date(assignment.endDate);
+                                const dateRangeText = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+                                
+                                html += `
+                                    <div class="assignment" 
+                                         draggable="true" 
+                                         data-assignment-id="${assignment.id}"
+                                         ondragstart="handleDragStart(event)"
+                                         title="${dateRangeText}">
+                                        <div class="assignment-delete" onclick="deleteAssignment(${assignment.id})"></div>
+                                        <div class="assignment-project">${project?.name || 'Unknown'}</div>
+                                        <div class="assignment-client">${client?.name || 'Unknown'}</div>
+                                        <div class="assignment-percentage">${assignment.percentage || 100}%</div>
+                                    </div>
+                                `;
+                            });
+                            
+                            // Show total allocation badge
+                            let badgeClass = 'allocation-ok';
+                            let badgeText = `${totalAllocation}%`;
+                            if (totalAllocation >= 100) {
+                                badgeClass = 'allocation-over';
+                                badgeText = `⚠️ ${totalAllocation}%`;
+                            } else if (totalAllocation > 50) {
+                                badgeClass = 'allocation-warning';
+                            }
+                            
+                            html += `<div class="allocation-badge ${badgeClass}">${badgeText}</div>`;
+                        } else {
+                            html += '<div class="empty-cell">—</div>';
+                        }
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                });
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function updateWeekDisplay() {
+            const { startDate } = getPeriodDates(currentPeriodOffset);
+            const { endDate } = getPeriodDates(currentPeriodOffset + 5);
+            
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const startMonth = monthNames[startDate.getMonth()];
+            const endMonth = monthNames[endDate.getMonth()];
+            const startYear = startDate.getFullYear();
+            const endYear = endDate.getFullYear();
+            
+            let displayText;
+            if (startYear === endYear) {
+                if (startMonth === endMonth) {
+                    displayText = `${startMonth} ${startYear}`;
+                } else {
+                    displayText = `${startMonth} - ${endMonth} ${startYear}`;
+                }
+            } else {
+                displayText = `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
+            }
+            
+            document.getElementById('weekDisplay').textContent = displayText;
+        }
+
+        function changePeriod(offset) {
+            currentPeriodOffset += offset;
+            renderTimeline();
+            updateWeekDisplay();
+        }
+
+        // Modal functions
+        function openModal(type) {
+            if (type === 'assignment') {
+                // Set default dates to current view's first period
+                const { startDate } = getPeriodDates(currentPeriodOffset);
+                document.getElementById('assignmentStartDate').value = formatDateForInput(startDate);
+                document.getElementById('assignmentEndDate').value = formatDateForInput(new Date(startDate.getTime() + 13 * 24 * 60 * 60 * 1000));
+            }
+            document.getElementById(`${type}Modal`).classList.add('active');
+        }
+
+        function closeModal(type) {
+            document.getElementById(`${type}Modal`).classList.remove('active');
+        }
+
+        // Add functions
+        async function addPerson(e) {
+            e.preventDefault();
+            const name = document.getElementById('personName').value;
+            const role = document.getElementById('personRole').value;
+            
+            try {
+                const person = await apiCall('/people', 'POST', { name, role });
+                data.people.push(person);
+                
+                document.getElementById('personName').value = '';
+                document.getElementById('personRole').value = '';
+                closeModal('person');
+                renderPeople();
+                renderTimeline();
+            } catch (error) {
+                console.error('Failed to add person:', error);
+            }
+        }
+
+        async function addClient(e) {
+            e.preventDefault();
+            const name = document.getElementById('clientName').value;
+            
+            try {
+                const client = await apiCall('/clients', 'POST', { name });
+                data.clients.push(client);
+                
+                document.getElementById('clientName').value = '';
+                closeModal('client');
+                renderClients();
+            } catch (error) {
+                console.error('Failed to add client:', error);
+            }
+        }
+
+        async function addProject(e) {
+            e.preventDefault();
+            const name = document.getElementById('projectName').value;
+            const clientId = parseInt(document.getElementById('projectClient').value);
+            
+            try {
+                const project = await apiCall('/projects', 'POST', { name, clientId });
+                data.projects.push(project);
+                
+                document.getElementById('projectName').value = '';
+                document.getElementById('projectClient').value = '';
+                closeModal('project');
+                renderProjects();
+            } catch (error) {
+                console.error('Failed to add project:', error);
+            }
+        }
+
+        async function addAssignment(e) {
+            e.preventDefault();
+            const personId = parseInt(document.getElementById('assignmentPerson').value);
+            const projectId = parseInt(document.getElementById('assignmentProject').value);
+            const startDate = document.getElementById('assignmentStartDate').value;
+            const endDate = document.getElementById('assignmentEndDate').value;
+            const percentage = parseInt(document.getElementById('assignmentPercentage').value);
+            
+            // Validate dates
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('End date must be after or equal to start date');
+                return;
+            }
+            
+            try {
+                const result = await apiCall('/assignments', 'POST', { 
+                    personId, 
+                    projectId, 
+                    startDate, 
+                    endDate, 
+                    percentage 
+                });
+                
+                data.assignments.push({ 
+                    id: result.id,
+                    personId, 
+                    projectId, 
+                    startDate, 
+                    endDate, 
+                    percentage 
+                });
+                
+                document.getElementById('assignmentPerson').value = '';
+                document.getElementById('assignmentProject').value = '';
+                document.getElementById('assignmentStartDate').value = '';
+                document.getElementById('assignmentEndDate').value = '';
+                document.getElementById('assignmentPercentage').value = '100';
+                closeModal('assignment');
+                renderTimeline();
+            } catch (error) {
+                console.error('Failed to add assignment:', error);
+            }
+        }
+
+        // Drag and Drop handlers
+        let draggedAssignmentId = null;
+
+        function handleDragStart(event) {
+            draggedAssignmentId = event.target.dataset.assignmentId;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const cell = event.currentTarget;
+            if (!cell.classList.contains('drop-target')) {
+                cell.classList.add('drop-target');
+            }
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('drop-target');
+        }
+
+        async function handleDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drop-target');
+            
+            if (!draggedAssignmentId) return;
+            
+            const targetPersonId = parseInt(event.currentTarget.dataset.personId);
+            const targetPeriod = parseInt(event.currentTarget.dataset.period);
+            
+            // Find the assignment being dragged
+            const assignment = data.assignments.find(a => a.id == draggedAssignmentId);
+            if (!assignment) return;
+            
+            // Calculate duration of original assignment
+            const originalStart = new Date(assignment.startDate);
+            const originalEnd = new Date(assignment.endDate);
+            const durationDays = Math.ceil((originalEnd - originalStart) / (24 * 60 * 60 * 1000));
+            
+            // Get start date of target period
+            const { startDate: periodStart } = getPeriodDates(targetPeriod);
+            const newStartDate = formatDateForInput(periodStart);
+            const newEndDate = formatDateForInput(new Date(periodStart.getTime() + durationDays * 24 * 60 * 60 * 1000));
+            
+            try {
+                // Delete old assignment
+                await apiCall(`/assignments/${assignment.id}`, 'DELETE');
+                
+                // Create new assignment in target location
+                const result = await apiCall('/assignments', 'POST', {
+                    personId: targetPersonId,
+                    projectId: assignment.projectId,
+                    startDate: newStartDate,
+                    endDate: newEndDate,
+                    percentage: assignment.percentage
+                });
+                
+                // Update local data
+                const index = data.assignments.findIndex(a => a.id == draggedAssignmentId);
+                if (index !== -1) {
+                    data.assignments.splice(index, 1);
+                }
+                
+                data.assignments.push({
+                    id: result.id,
+                    personId: targetPersonId,
+                    projectId: assignment.projectId,
+                    startDate: newStartDate,
+                    endDate: newEndDate,
+                    percentage: assignment.percentage
+                });
+                
+                renderTimeline();
+            } catch (error) {
+                console.error('Failed to move assignment:', error);
+            }
+            
+            draggedAssignmentId = null;
+        }
+
+        async function deleteAssignment(assignmentId) {
+            try {
+                await apiCall(`/assignments/${assignmentId}`, 'DELETE');
+                data.assignments = data.assignments.filter(a => a.id !== assignmentId);
+                renderTimeline();
+            } catch (error) {
+                console.error('Failed to delete assignment:', error);
+            }
+        }
+
+        // Delete functions
+        async function deletePerson(personId) {
+            if (confirm('Are you sure you want to delete this team member? All their assignments will also be deleted.')) {
+                try {
+                    await apiCall(`/people/${personId}`, 'DELETE');
+                    // Remove from local data
+                    data.people = data.people.filter(p => p.id !== personId);
+                    data.assignments = data.assignments.filter(a => a.personId !== personId);
+                    renderAll();
+                } catch (error) {
+                    console.error('Failed to delete person:', error);
+                }
+            }
+        }
+
+        async function deleteClient(clientId) {
+            const projectCount = data.projects.filter(p => p.clientId === clientId).length;
+            const message = projectCount > 0 
+                ? `This client has ${projectCount} project(s). Deleting the client will also delete all associated projects and assignments. Continue?`
+                : 'Are you sure you want to delete this client?';
+            
+            if (confirm(message)) {
+                try {
+                    await apiCall(`/clients/${clientId}`, 'DELETE');
+                    // Remove from local data
+                    const projectIds = data.projects.filter(p => p.clientId === clientId).map(p => p.id);
+                    data.assignments = data.assignments.filter(a => !projectIds.includes(a.projectId));
+                    data.projects = data.projects.filter(p => p.clientId !== clientId);
+                    data.clients = data.clients.filter(c => c.id !== clientId);
+                    renderAll();
+                } catch (error) {
+                    console.error('Failed to delete client:', error);
+                }
+            }
+        }
+
+        async function deleteProject(projectId) {
+            if (confirm('Are you sure you want to delete this project? All assignments to this project will also be deleted.')) {
+                try {
+                    await apiCall(`/projects/${projectId}`, 'DELETE');
+                    // Remove from local data
+                    data.projects = data.projects.filter(p => p.id !== projectId);
+                    data.assignments = data.assignments.filter(a => a.projectId !== projectId);
+                    renderAll();
+                } catch (error) {
+                    console.error('Failed to delete project:', error);
+                }
+            }
+        }
+
+        function updateAssignmentSelects() {
+            const personSelect = document.getElementById('assignmentPerson');
+            const projectSelect = document.getElementById('assignmentProject');
+            
+            personSelect.innerHTML = '<option value="">Select a person</option>' +
+                data.people.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            
+            projectSelect.innerHTML = '<option value="">Select a project</option>' +
+                data.projects.map(p => {
+                    const client = data.clients.find(c => c.id === p.clientId);
+                    return `<option value="${p.id}">${p.name} (${client?.name || 'Unknown'})</option>`;
+                }).join('');
+        }
+
+        function updateProjectClientSelect() {
+            const select = document.getElementById('projectClient');
+            select.innerHTML = '<option value="">Select a client</option>' +
+                data.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+
+        function processUpload() {
+            const fileInput = document.getElementById('uploadFile');
+            const uploadType = document.getElementById('uploadType').value;
+            const statusDiv = document.getElementById('uploadStatus');
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                showUploadStatus('Please select a file', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // Check if file is CSV
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showUploadStatus('Please upload a CSV file', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    processCSVUpload(content, uploadType);
+                    
+                    showUploadStatus('Data uploaded successfully!', 'success');
+                    setTimeout(() => {
+                        closeModal('upload');
+                        fileInput.value = '';
+                        statusDiv.style.display = 'none';
+                    }, 1500);
+                    
+                } catch (error) {
+                    showUploadStatus('Error processing file: ' + error.message, 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        async function processCSVUpload(content, uploadType) {
+            const lines = content.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            try {
+                if (uploadType === 'csv-people') {
+                    const people = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length >= 2 && values[0]) {
+                            people.push({ name: values[0], role: values[1] });
+                        }
+                    }
+                    if (people.length > 0) {
+                        const result = await apiCall('/bulk-upload/people', 'POST', { people });
+                        data.people.push(...result.added);
+                    }
+                } else if (uploadType === 'csv-clients') {
+                    const clients = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length >= 1 && values[0]) {
+                            clients.push({ name: values[0] });
+                        }
+                    }
+                    if (clients.length > 0) {
+                        const result = await apiCall('/bulk-upload/clients', 'POST', { clients });
+                        data.clients.push(...result.added);
+                    }
+                } else if (uploadType === 'csv-projects') {
+                    const projects = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length >= 2 && values[0]) {
+                            const client = data.clients.find(c => c.name === values[1]);
+                            if (client) {
+                                projects.push({ name: values[0], clientId: client.id });
+                            }
+                        }
+                    }
+                    if (projects.length > 0) {
+                        const result = await apiCall('/bulk-upload/projects', 'POST', { projects });
+                        data.projects.push(...result.added);
+                    }
+                } else if (uploadType === 'csv-assignments') {
+                    const assignments = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length >= 4 && values[0]) {
+                            const person = data.people.find(p => p.name === values[0]);
+                            const project = data.projects.find(p => p.name === values[1]);
+                            if (person && project) {
+                                const percentage = values[4] ? parseInt(values[4]) : 100;
+                                assignments.push({
+                                    personId: person.id,
+                                    projectId: project.id,
+                                    startDate: values[2],
+                                    endDate: values[3],
+                                    percentage: percentage
+                                });
+                            }
+                        }
+                    }
+                    if (assignments.length > 0) {
+                        const result = await apiCall('/bulk-upload/assignments', 'POST', { assignments });
+                        data.assignments.push(...result.added.map(a => ({
+                            id: a.id,
+                            personId: a.personId,
+                            projectId: a.projectId,
+                            startDate: a.startDate,
+                            endDate: a.endDate,
+                            percentage: a.percentage
+                        })));
+                    }
+                }
+                
+                // Render everything to show the uploaded data
+                renderAll();
+            } catch (error) {
+                console.error('Failed to upload CSV:', error);
+                throw error;
+            }
+        }
+
+        function showUploadStatus(message, type) {
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = message;
+            
+            if (type === 'success') {
+                statusDiv.style.background = 'rgba(16, 185, 129, 0.2)';
+                statusDiv.style.color = 'var(--accent-secondary)';
+                statusDiv.style.border = '1px solid var(--accent-secondary)';
+            } else {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.color = '#ef4444';
+                statusDiv.style.border = '1px solid #ef4444';
+            }
+        }
+
+        function exportData() {
+            // Prepare export data with names instead of IDs
+            const exportData = {
+                people: data.people.map(p => ({
+                    name: p.name,
+                    role: p.role
+                })),
+                clients: data.clients.map(c => ({
+                    name: c.name
+                })),
+                projects: data.projects.map(p => {
+                    const client = data.clients.find(c => c.id === p.clientId);
+                    return {
+                        name: p.name,
+                        clientName: client ? client.name : 'Unknown'
+                    };
+                }),
+                assignments: data.assignments.map(a => {
+                    const person = data.people.find(p => p.id === a.personId);
+                    const project = data.projects.find(p => p.id === a.projectId);
+                    return {
+                        personName: person ? person.name : 'Unknown',
+                        projectName: project ? project.name : 'Unknown',
+                        startDate: a.startDate,
+                        endDate: a.endDate,
+                        percentage: a.percentage || 100
+                    };
+                })
+            };
+            
+            // Create download link
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `resource-planner-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function renderAll() {
+            renderPeople();
+            renderClients();
+            renderProjects();
+            renderTimeline();
+        }
+
+        // Toggle collapsible groups
+        function toggleGroup(groupId) {
+            const content = document.getElementById(groupId);
+            const toggle = document.getElementById(groupId + '-toggle');
+            
+            if (content && toggle) {
+                content.classList.toggle('collapsed');
+                toggle.classList.toggle('collapsed');
+            }
+        }
+
+        // Timeline view state
+        let timelineView = 'biweekly'; // 'biweekly', 'monthly', 'quarterly'
+
+        // Change timeline view
+        function changeTimelineView(view) {
+            timelineView = view;
+            
+            // Update active button
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('view-' + view).classList.add('active');
+            
+            // Update navigation button tooltips and period changes
+            const prevBtn = document.getElementById('prevButton');
+            const nextBtn = document.getElementById('nextButton');
+            
+            if (view === 'monthly') {
+                prevBtn.querySelector('.tooltip').textContent = 'Previous 6 Months';
+                nextBtn.querySelector('.tooltip').textContent = 'Next 6 Months';
+            } else if (view === 'quarterly') {
+                prevBtn.querySelector('.tooltip').textContent = 'Previous 4 Quarters';
+                nextBtn.querySelector('.tooltip').textContent = 'Next 4 Quarters';
+            } else {
+                prevBtn.querySelector('.tooltip').textContent = 'Previous 3 Months';
+                nextBtn.querySelector('.tooltip').textContent = 'Next 3 Months';
+            }
+            
+            renderTimeline();
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

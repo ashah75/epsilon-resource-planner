@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Planner - Welcome</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .link-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+            display: block;
+        }
+        .link-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .link-card h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+        .link-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .emoji {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .steps {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .steps h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .steps ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+        .steps li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem;">
+            <img src="epsilon-logo.png" alt="Epsilon" style="height: 50px; width: auto; max-width: 200px; object-fit: contain;">
+            <div style="flex: 1;">
+                <h1>🎯 Resource Planner</h1>
+                <p class="subtitle">Professional Services Team Management System <span class="status-badge">V3.0 - DATE-BASED</span></p>
+            </div>
+        </div>
+
+        <div class="steps">
+            <h3>🚀 Quick Start (3 Steps)</h3>
+            <ol>
+                <li><strong>Start the Backend:</strong> Open a terminal and run:
+                    <div class="code">python3 backend.py</div>
+                </li>
+                <li><strong>Test the Connection:</strong> Open <a href="test-api.html" target="_blank">test-api.html</a> and click "Run All Tests"</li>
+                <li><strong>Launch the App:</strong> Open <a href="resource-planner.html" target="_blank">resource-planner.html</a></li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>📱 Application Links</h2>
+            <div class="links">
+                <a href="resource-planner.html" class="link-card">
+                    <span class="emoji">🎨</span>
+                    <h3>Resource Planner</h3>
+                    <p>Main application interface - Start here!</p>
+                </a>
+                
+                <a href="test-api.html" class="link-card">
+                    <span class="emoji">🧪</span>
+                    <h3>API Test Page</h3>
+                    <p>Test if backend is working correctly</p>
+                </a>
+                
+                <a href="architecture.html" class="link-card">
+                    <span class="emoji">🏗️</span>
+                    <h3>Architecture</h3>
+                    <p>Visual guide to how the system works</p>
+                </a>
+
+                <a href="drag-drop-guide.html" class="link-card">
+                    <span class="emoji">🎯</span>
+                    <h3>Drag & Drop Guide</h3>
+                    <p>Learn about heat maps and allocation features</p>
+                </a>
+
+                <a href="V3-MIGRATION-GUIDE.md" class="link-card" download>
+                    <span class="emoji">📅</span>
+                    <h3>V3.0 Migration Guide</h3>
+                    <p>NEW! Date-based assignments explained</p>
+                </a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📚 Documentation</h2>
+            <div class="links">
+                <a href="SETUP-GUIDE.md" class="link-card" download>
+                    <span class="emoji">📖</span>
+                    <h3>Setup Guide</h3>
+                    <p>Complete installation and usage guide</p>
+                </a>
+                
+                <a href="README.md" class="link-card" download>
+                    <span class="emoji">📝</span>
+                    <h3>Technical README</h3>
+                    <p>API documentation and details</p>
+                </a>
+                
+                <a href="backend.py" class="link-card" download>
+                    <span class="emoji">⚙️</span>
+                    <h3>Backend Code</h3>
+                    <p>Python Flask API server</p>
+                </a>
+                
+                <a href="start-backend.sh" class="link-card" download>
+                    <span class="emoji">🚀</span>
+                    <h3>Startup Script</h3>
+                    <p>Bash script to launch backend</p>
+                </a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>✨ Features</h2>
+            <div class="feature-list">
+                <div class="feature-item">✅ 📅 Date-based assignments</div>
+                <div class="feature-item">✅ Calendar date pickers</div>
+                <div class="feature-item">✅ Flexible date ranges</div>
+                <div class="feature-item">✅ Timeline view (2-week periods)</div>
+                <div class="feature-item">✅ Drag & drop scheduling</div>
+                <div class="feature-item">✅ Percentage allocation (0-100%)</div>
+                <div class="feature-item">✅ Heat map visualization</div>
+                <div class="feature-item">✅ Over-allocation warnings</div>
+                <div class="feature-item">✅ People management</div>
+                <div class="feature-item">✅ Client tracking</div>
+                <div class="feature-item">✅ Project planning</div>
+                <div class="feature-item">✅ CSV bulk upload</div>
+                <div class="feature-item">✅ JSON export</div>
+                <div class="feature-item">✅ SQLite database</div>
+                <div class="feature-item">✅ REST API</div>
+                <div class="feature-item">✅ Real-time updates</div>
+                <div class="feature-item">✅ Cascade deletion</div>
+                <div class="feature-item">✅ Data persistence</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ Technology Stack</h2>
+            <p><strong>Frontend:</strong> HTML5, CSS3, JavaScript (Vanilla)</p>
+            <p><strong>Backend:</strong> Python 3, Flask, Flask-CORS</p>
+            <p><strong>Database:</strong> SQLite 3 (file-based, no setup needed)</p>
+            <p><strong>Communication:</strong> REST API, JSON, HTTP</p>
+        </div>
+
+        <div class="section">
+            <h2>💡 What You Can Do</h2>
+            <ul>
+                <li>Plan resource allocation for professional services teams</li>
+                <li>Track which consultants are on which projects</li>
+                <li>Visualize team capacity across time</li>
+                <li>Manage clients and their projects</li>
+                <li>Upload team data from CSV files</li>
+                <li>Export data for backup or reporting</li>
+                <li>Navigate through months and quarters</li>
+                <li>See resource conflicts and availability</li>
+            </ul>
+        </div>
+
+        <div class="section" style="border-left-color: #f44336;">
+            <h2>⚠️ Important Notes</h2>
+            <ul>
+                <li>The backend must be running for the app to work</li>
+                <li>Keep the terminal window open while using the app</li>
+                <li>All data is stored in <code>resource_planner.db</code></li>
+                <li>Export your data regularly for backups</li>
+                <li>This is a development setup - see docs for production use</li>
+            </ul>
+        </div>
+
+        <div class="section" style="border-left-color: #4CAF50;">
+            <h2>🎓 Getting Help</h2>
+            <ul>
+                <li>Check the <strong>SETUP-GUIDE.md</strong> for detailed instructions</li>
+                <li>Use <strong>test-api.html</strong> to diagnose connection issues</li>
+                <li>View <strong>architecture.html</strong> to understand how it works</li>
+                <li>Check browser console (F12) for frontend errors</li>
+                <li>Check terminal output for backend errors</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+            <p style="color: #666;">Built with ❤️ using free and open-source technologies</p>
+            <p style="color: #999; font-size: 0.9rem;">Python + Flask + SQLite + Vanilla JavaScript</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,193 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                    RESOURCE PLANNER V3.0                         ║
+║           Date-Based Assignments + Heat Map Features             ║
+╚══════════════════════════════════════════════════════════════════╝
+
+🎨 HEAT MAP VISUALIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🟢 Green     0-50%     Available Capacity
+  🟠 Orange    51-99%    High Utilization
+  🔴 Red       100%+     ⚠️  OVER-ALLOCATED
+
+👁️  See at a glance who has capacity and who's overloaded
+📊 Color-coded cells for instant visual feedback
+🎯 Quick identification of resource bottlenecks
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 PERCENTAGE-BASED ALLOCATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Assign team members with precise percentages (1-100%)
+
+  Examples:
+  • 100% → Full-time on one project
+  • 50%  → Half-time, can work on two projects
+  • 25%  → Quarter-time for advisory/oversight roles
+
+✨ Multiple concurrent project assignments
+🎯 Accurate capacity planning
+📈 Better workload distribution
+💯 Flexible resource allocation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  OVER-ALLOCATION DETECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Automatic alerts when total allocation exceeds 100%
+
+  Visual Indicators:
+  • Red heat map color
+  • Warning badge: ⚠️ 125%
+  • Pulsing animation for attention
+  • Clear percentage display
+
+🚨 Prevent team burnout
+🔍 Identify scheduling conflicts instantly
+✅ Maintain realistic workloads
+📋 Proactive resource management
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🖱️  DRAG & DROP SCHEDULING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Move assignments between people and time periods
+
+  How It Works:
+  1. Click and hold any assignment card
+  2. Drag to target cell (person + time period)
+  3. Release to drop
+  4. Updates instantly!
+
+⚡ Lightning-fast rescheduling
+🎯 Visual, intuitive interface
+💾 Auto-saves to database
+🔄 No delete-and-recreate needed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 ALLOCATION BADGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Small badges showing total allocation per cell
+
+  Types:
+  • [45%]     Green  - Under 50%
+  • [85%]     Orange - 51-99%
+  • [⚠️ 125%] Red    - 100%+ (pulsing)
+
+📊 Precise allocation numbers
+👀 Quick capacity checks
+⚖️  Easy workload balancing
+🎨 Color-coded for clarity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗑️  QUICK DELETE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Remove assignments directly from timeline
+
+  How:
+  • Hover over any assignment card
+  • Click the [×] button
+  • Assignment deleted instantly
+
+⚡ One-click removal
+🚀 Faster workflow
+✨ No menu navigation needed
+💾 Auto-saves changes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CORE FEATURES (Still Available!)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Timeline view (2-week periods from Jan 2026)
+✅ Date-based assignments (start/end dates with calendar picker)
+✅ Flexible date ranges (1 day to multiple months)
+✅ Assignments span multiple periods automatically
+✅ People, clients, and projects management
+✅ CSV bulk upload with dates & percentage support
+✅ JSON data export
+✅ SQLite database (persistent storage)
+✅ REST API (15+ endpoints)
+✅ Real-time updates
+✅ Cascade deletion
+✅ Date navigation (months/quarters)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 CSV FORMAT WITH DATES & PERCENTAGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+personName,projectName,startDate,endDate,percentage
+John Doe,Digital Transformation,2026-01-01,2026-01-31,100
+Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50
+Jane Smith,Data Analysis,2026-01-15,2026-02-28,50
+Bob Johnson,Risk Assessment,2026-02-01,2026-03-15,75
+
+Note: Dates in YYYY-MM-DD format | Percentage is optional (defaults to 100%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎓 USE CASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ Consulting Firms      → Split consultants across multiple clients
+✨ Creative Agencies     → Balance team across campaigns
+✨ Professional Services → Track utilization & capacity
+✨ PMOs                  → Visualize constraints & optimize timelines
+✨ Resource Managers     → Quick scheduling with conflict detection
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 ALLOCATION EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example 1: Perfect Balance ✅
+  Sarah Chen (Period 0):
+  • Project A: 50%
+  • Project B: 50%
+  Total: 100% (Fully allocated, no conflicts)
+
+Example 2: Available Capacity 🟢
+  Marcus Johnson (Period 1):
+  • Project C: 30%
+  Total: 30% (70% capacity available)
+
+Example 3: Over-Allocation ⚠️
+  Emma Rodriguez (Period 2):
+  • Project A: 60%
+  • Project B: 50%
+  • Project C: 20%
+  Total: 130% (OVER-ALLOCATED - needs attention!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Start Backend:
+   $ python3 backend.py
+
+2. Open Application:
+   Open resource-planner.html in browser
+
+3. Start Planning:
+   • Add people, clients, projects
+   • Assign with percentages
+   • Drag and drop to reschedule
+   • Watch heat map for over-allocation
+   • Export data when done
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📖 index.html          → Welcome page with all links
+📖 drag-drop-guide.html → Complete feature guide
+📖 architecture.html    → System architecture
+📖 SETUP-GUIDE.md      → Installation & usage
+📖 README.md           → Technical API reference
+📖 CHANGELOG.md        → Version history
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Built with ❤️  using Python, Flask, SQLite, and Vanilla JavaScript
+Free and Open Source • No Dependencies • Works Offline
