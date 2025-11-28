@@ -224,11 +224,41 @@
             margin-bottom: 0.5rem;
             transition: all 0.2s ease;
             border: 1px solid var(--border);
+            position: relative;
         }
 
         .group-header:hover {
             background: var(--hover);
             border-color: var(--accent-primary);
+        }
+
+        .group-delete-icon {
+            position: absolute;
+            right: 2.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .group-header:hover .group-delete-icon {
+            opacity: 0.6;
+        }
+
+        .group-delete-icon:hover {
+            opacity: 1 !important;
+        }
+
+        .group-delete-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: #ef4444;
+            stroke-width: 2;
+            fill: none;
         }
 
         .group-title {
@@ -834,13 +864,13 @@
         <div class="main-grid">
             <div class="sidebar">
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Team Members</div>
-                    <div id="peopleList"></div>
+                    <div class="sidebar-title">Projects</div>
+                    <div id="projectsList"></div>
                 </div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Projects</div>
-                    <div id="projectsList"></div>
+                    <div class="sidebar-title">Team Members</div>
+                    <div id="peopleList"></div>
                 </div>
 
                 <div class="sidebar-section">
@@ -1251,6 +1281,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             Object.keys(byRole).sort().forEach(role => {
                 const people = byRole[role];
                 const groupId = 'role-' + role.replace(/\s+/g, '-').toLowerCase();
+                const peopleIds = people.map(p => p.id).join(',');
                 
                 html += `
                     <div class="group-header" onclick="toggleGroup('${groupId}')">
@@ -1258,6 +1289,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             <span>👥</span>
                             <span>${role}</span>
                             <span class="group-count">${people.length}</span>
+                        </div>
+                        <div class="group-delete-icon" onclick="deleteGroup('people', '${role}', [${peopleIds}]); event.stopPropagation();" title="Delete all ${role}s">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                <path d="M10 11v6M14 11v6"/>
+                            </svg>
                         </div>
                         <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                     </div>
@@ -1293,6 +1330,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             // Create a single collapsible group for all clients
             const groupId = 'all-clients';
+            const clientIds = data.clients.map(c => c.id).join(',');
             
             let html = `
                 <div class="group-header" onclick="toggleGroup('${groupId}')">
@@ -1300,6 +1338,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         <span>🏢</span>
                         <span>All Clients</span>
                         <span class="group-count">${data.clients.length}</span>
+                    </div>
+                    <div class="group-delete-icon" onclick="deleteGroup('clients', 'All Clients', [${clientIds}]); event.stopPropagation();" title="Delete all clients">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                            <path d="M10 11v6M14 11v6"/>
+                        </svg>
                     </div>
                     <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                 </div>
@@ -1350,6 +1394,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             Object.keys(byClient).sort().forEach(clientName => {
                 const projects = byClient[clientName];
                 const groupId = 'client-' + clientName.replace(/\s+/g, '-').toLowerCase();
+                const projectIds = projects.map(p => p.id).join(',');
                 
                 html += `
                     <div class="group-header" onclick="toggleGroup('${groupId}')">
@@ -1357,6 +1402,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             <span>🏢</span>
                             <span>${clientName}</span>
                             <span class="group-count">${projects.length}</span>
+                        </div>
+                        <div class="group-delete-icon" onclick="deleteGroup('projects', '${clientName}', [${projectIds}]); event.stopPropagation();" title="Delete all projects for ${clientName}">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+                                <path d="M10 11v6M14 11v6"/>
+                            </svg>
                         </div>
                         <span class="group-toggle collapsed" id="${groupId}-toggle">▼</span>
                     </div>
@@ -2021,6 +2072,59 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     renderAll();
                 } catch (error) {
                     console.error('Failed to delete project:', error);
+                }
+            }
+        }
+
+        async function deleteGroup(type, groupName, ids) {
+            let message = '';
+            let itemType = '';
+            
+            if (type === 'people') {
+                itemType = 'team members';
+                message = `Are you sure you want to delete all ${ids.length} ${groupName}(s)? All their assignments will also be deleted.`;
+            } else if (type === 'clients') {
+                itemType = 'clients';
+                const projectCount = data.projects.filter(p => ids.includes(p.clientId)).length;
+                message = projectCount > 0
+                    ? `Are you sure you want to delete all ${ids.length} client(s)? This will also delete ${projectCount} project(s) and all associated assignments.`
+                    : `Are you sure you want to delete all ${ids.length} client(s)?`;
+            } else if (type === 'projects') {
+                itemType = 'projects';
+                message = `Are you sure you want to delete all ${ids.length} project(s) for ${groupName}? All assignments to these projects will also be deleted.`;
+            }
+            
+            if (confirm(message)) {
+                try {
+                    // Delete each item in the group
+                    for (const id of ids) {
+                        if (type === 'people') {
+                            await apiCall(`/people/${id}`, 'DELETE');
+                        } else if (type === 'clients') {
+                            await apiCall(`/clients/${id}`, 'DELETE');
+                        } else if (type === 'projects') {
+                            await apiCall(`/projects/${id}`, 'DELETE');
+                        }
+                    }
+                    
+                    // Update local data
+                    if (type === 'people') {
+                        data.people = data.people.filter(p => !ids.includes(p.id));
+                        data.assignments = data.assignments.filter(a => !ids.includes(a.personId));
+                    } else if (type === 'clients') {
+                        const projectIds = data.projects.filter(p => ids.includes(p.clientId)).map(p => p.id);
+                        data.assignments = data.assignments.filter(a => !projectIds.includes(a.projectId));
+                        data.projects = data.projects.filter(p => !ids.includes(p.clientId));
+                        data.clients = data.clients.filter(c => !ids.includes(c.id));
+                    } else if (type === 'projects') {
+                        data.projects = data.projects.filter(p => !ids.includes(p.id));
+                        data.assignments = data.assignments.filter(a => !ids.includes(a.projectId));
+                    }
+                    
+                    renderAll();
+                } catch (error) {
+                    console.error(`Failed to delete ${itemType} group:`, error);
+                    alert(`Error deleting ${itemType}. Some items may not have been deleted.`);
                 }
             }
         }
