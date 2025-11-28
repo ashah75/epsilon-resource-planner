@@ -846,7 +846,7 @@
                     <span>📊</span>
                     <div class="tooltip">Add Project</div>
                 </button>
-                <button class="btn-icon" onclick="openModal('assignment')">
+                <button class="btn-icon" onclick="openAddAssignmentModal()">
                     <span>📅</span>
                     <div class="tooltip">Assign to Project</div>
                 </button>
@@ -1564,8 +1564,10 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                                          draggable="true" 
                                          data-assignment-id="${assignment.id}"
                                          ondragstart="handleDragStart(event)"
-                                         title="${dateRangeText}">
-                                        <div class="assignment-delete" onclick="deleteAssignment(${assignment.id})"></div>
+                                         onclick="editAssignment(${assignment.id}); event.stopPropagation();"
+                                         style="cursor: pointer;"
+                                         title="Click to edit • ${dateRangeText}">
+                                        <div class="assignment-delete" onclick="deleteAssignment(${assignment.id}); event.stopPropagation();"></div>
                                         <div class="assignment-project">${project?.name || 'Unknown'}</div>
                                         <div class="assignment-client">${client?.name || 'Unknown'}</div>
                                         <div class="assignment-percentage">${assignment.percentage || 100}%</div>
@@ -1666,6 +1668,18 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             document.getElementById('projectName').value = '';
             document.getElementById('projectClient').value = '';
             openModal('project');
+        }
+
+        function openAddAssignmentModal() {
+            delete document.getElementById('assignmentModal').dataset.editId;
+            document.querySelector('#assignmentModal h2').textContent = 'Add Assignment';
+            document.querySelector('#assignmentModal button[type="submit"]').textContent = 'Add';
+            document.getElementById('assignmentPerson').value = '';
+            document.getElementById('assignmentProject').value = '';
+            document.getElementById('assignmentStartDate').value = '';
+            document.getElementById('assignmentEndDate').value = '';
+            document.getElementById('assignmentPercentage').value = '100';
+            openModal('assignment');
         }
 
         function closeModal(type) {
@@ -1846,6 +1860,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const startDate = document.getElementById('assignmentStartDate').value;
             const endDate = document.getElementById('assignmentEndDate').value;
             const percentage = parseInt(document.getElementById('assignmentPercentage').value);
+            const editId = document.getElementById('assignmentModal').dataset.editId;
             
             // Validate dates
             if (new Date(startDate) > new Date(endDate)) {
@@ -1854,33 +1869,91 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             }
             
             try {
-                const result = await apiCall('/assignments', 'POST', { 
-                    personId, 
-                    projectId, 
-                    startDate, 
-                    endDate, 
-                    percentage 
-                });
-                
-                data.assignments.push({ 
-                    id: result.id,
-                    personId, 
-                    projectId, 
-                    startDate, 
-                    endDate, 
-                    percentage 
-                });
+                if (editId) {
+                    // Edit mode - delete old and create new (since we don't have PUT for assignments)
+                    await apiCall(`/assignments/${editId}`, 'DELETE');
+                    const result = await apiCall('/assignments', 'POST', { 
+                        personId, 
+                        projectId, 
+                        startDate, 
+                        endDate, 
+                        percentage 
+                    });
+                    
+                    // Update local data
+                    const index = data.assignments.findIndex(a => a.id == editId);
+                    if (index !== -1) {
+                        data.assignments[index] = {
+                            id: result.id,
+                            personId, 
+                            projectId, 
+                            startDate, 
+                            endDate, 
+                            percentage
+                        };
+                    }
+                    delete document.getElementById('assignmentModal').dataset.editId;
+                } else {
+                    // Add mode - create new
+                    const result = await apiCall('/assignments', 'POST', { 
+                        personId, 
+                        projectId, 
+                        startDate, 
+                        endDate, 
+                        percentage 
+                    });
+                    
+                    data.assignments.push({ 
+                        id: result.id,
+                        personId, 
+                        projectId, 
+                        startDate, 
+                        endDate, 
+                        percentage 
+                    });
+                }
                 
                 document.getElementById('assignmentPerson').value = '';
                 document.getElementById('assignmentProject').value = '';
                 document.getElementById('assignmentStartDate').value = '';
                 document.getElementById('assignmentEndDate').value = '';
                 document.getElementById('assignmentPercentage').value = '100';
+                
+                // Reset modal title and button
+                document.querySelector('#assignmentModal h2').textContent = 'Add Assignment';
+                document.querySelector('#assignmentModal button[type="submit"]').textContent = 'Add';
+                
                 closeModal('assignment');
                 renderTimeline();
             } catch (error) {
-                console.error('Failed to add assignment:', error);
+                console.error('Failed to save assignment:', error);
             }
+        }
+
+        // Edit assignment function
+        function editAssignment(assignmentId) {
+            const assignment = data.assignments.find(a => a.id === assignmentId);
+            if (!assignment) return;
+            
+            // Store the ID for update
+            document.getElementById('assignmentModal').dataset.editId = assignmentId;
+            
+            // Prefill the form
+            document.getElementById('assignmentPerson').value = assignment.personId;
+            document.getElementById('assignmentProject').value = assignment.projectId;
+            document.getElementById('assignmentStartDate').value = assignment.startDate;
+            document.getElementById('assignmentEndDate').value = assignment.endDate;
+            document.getElementById('assignmentPercentage').value = assignment.percentage || 100;
+            
+            // Change modal title and button text
+            const person = data.people.find(p => p.id === assignment.personId);
+            const project = data.projects.find(p => p.id === assignment.projectId);
+            const modalTitle = document.querySelector('#assignmentModal h2');
+            const submitBtn = document.querySelector('#assignmentModal button[type="submit"]');
+            modalTitle.textContent = `Edit Assignment: ${person?.name || 'Unknown'} → ${project?.name || 'Unknown'}`;
+            submitBtn.textContent = 'Update';
+            
+            openModal('assignment', true); // Skip defaults since we're prefilling
         }
 
         // Drag and Drop handlers
