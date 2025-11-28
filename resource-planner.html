@@ -871,6 +871,10 @@
                             <span>📥</span>
                             <div class="tooltip">Export Data</div>
                         </button>
+                        <button class="btn-icon" onclick="generateReport()">
+                            <span>📈</span>
+                            <div class="tooltip">Reports</div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2476,6 +2480,315 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             // Save file
             XLSX.writeFile(wb, filename);
+        }
+
+        function generateReport() {
+            // Calculate report data
+            const reportData = calculateReportData();
+            
+            // Generate HTML report
+            const reportHTML = generateReportHTML(reportData);
+            
+            // Open in new tab
+            const newWindow = window.open('', '_blank');
+            newWindow.document.write(reportHTML);
+            newWindow.document.close();
+        }
+
+        function calculateReportData() {
+            // Get all months from assignments
+            const monthsSet = new Set();
+            data.assignments.forEach(a => {
+                const start = new Date(a.startDate);
+                const end = new Date(a.endDate);
+                
+                let current = new Date(start.getFullYear(), start.getMonth(), 1);
+                const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+                
+                while (current <= endMonth) {
+                    monthsSet.add(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`);
+                    current.setMonth(current.getMonth() + 1);
+                }
+            });
+            
+            const months = Array.from(monthsSet).sort();
+            
+            // Team members by project
+            const projectStats = {};
+            data.projects.forEach(project => {
+                const client = data.clients.find(c => c.id === project.clientId);
+                const assignments = data.assignments.filter(a => a.projectId === project.id);
+                const uniquePeople = new Set(assignments.map(a => a.personId));
+                
+                projectStats[project.id] = {
+                    projectName: project.name,
+                    clientName: client ? client.name : 'Unknown',
+                    teamMemberCount: uniquePeople.size,
+                    teamMembers: Array.from(uniquePeople).map(personId => {
+                        const person = data.people.find(p => p.id === personId);
+                        return person ? person.name : 'Unknown';
+                    })
+                };
+            });
+            
+            // Monthly allocation by team member
+            const personMonthlyAllocation = {};
+            data.people.forEach(person => {
+                personMonthlyAllocation[person.id] = {
+                    name: person.name,
+                    role: person.role,
+                    months: {}
+                };
+                
+                months.forEach(month => {
+                    personMonthlyAllocation[person.id].months[month] = 0;
+                });
+            });
+            
+            // Calculate allocations
+            data.assignments.forEach(assignment => {
+                const start = new Date(assignment.startDate);
+                const end = new Date(assignment.endDate);
+                const percentage = assignment.percentage || 100;
+                
+                let current = new Date(start.getFullYear(), start.getMonth(), 1);
+                const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+                
+                while (current <= endMonth) {
+                    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+                    if (personMonthlyAllocation[assignment.personId]) {
+                        personMonthlyAllocation[assignment.personId].months[monthKey] += percentage;
+                    }
+                    current.setMonth(current.getMonth() + 1);
+                }
+            });
+            
+            return {
+                projectStats,
+                personMonthlyAllocation,
+                months
+            };
+        }
+
+        function generateReportHTML(reportData) {
+            const { projectStats, personMonthlyAllocation, months } = reportData;
+            
+            const monthHeaders = months.map(m => {
+                const [year, month] = m.split('-');
+                const date = new Date(year, month - 1, 1);
+                return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }).join('</th><th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc; font-weight: 600;">');
+            
+            const projectRows = Object.values(projectStats)
+                .sort((a, b) => b.teamMemberCount - a.teamMemberCount)
+                .map(project => `
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #ddd; font-weight: 500;">${project.projectName}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; color: #64748b;">${project.clientName}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; text-align: center; font-weight: 600; color: #f59e0b;">${project.teamMemberCount}</td>
+                        <td style="padding: 12px; border: 1px solid #ddd; color: #475569; font-size: 0.9em;">${project.teamMembers.join(', ')}</td>
+                    </tr>
+                `).join('');
+            
+            const allocationRows = Object.values(personMonthlyAllocation)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(person => {
+                    const monthCells = months.map(month => {
+                        const allocation = person.months[month];
+                        let bgColor = '#ffffff';
+                        let textColor = '#000000';
+                        
+                        if (allocation === 0) {
+                            bgColor = '#f1f5f9';
+                            textColor = '#94a3b8';
+                        } else if (allocation < 50) {
+                            bgColor = '#fef3c7';
+                            textColor = '#92400e';
+                        } else if (allocation < 100) {
+                            bgColor = '#fed7aa';
+                            textColor = '#9a3412';
+                        } else if (allocation === 100) {
+                            bgColor = '#10b981';
+                            textColor = '#ffffff';
+                        } else {
+                            bgColor = '#ef4444';
+                            textColor = '#ffffff';
+                        }
+                        
+                        return `<td style="padding: 12px; border: 1px solid #ddd; text-align: center; background: ${bgColor}; color: ${textColor}; font-weight: 600;">${allocation}%</td>`;
+                    }).join('');
+                    
+                    return `
+                        <tr>
+                            <td style="padding: 12px; border: 1px solid #ddd; font-weight: 500;">${person.name}</td>
+                            <td style="padding: 12px; border: 1px solid #ddd; color: #64748b;">${person.role}</td>
+                            ${monthCells}
+                        </tr>
+                    `;
+                }).join('');
+            
+            return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Allocation Report - ${new Date().toLocaleDateString()}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f8fafc;
+            padding: 2rem;
+            color: #1e293b;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid #f59e0b;
+        }
+        h1 {
+            color: #0f172a;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+        .section {
+            margin-bottom: 3rem;
+        }
+        h2 {
+            color: #0f172a;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+        th {
+            background: #f1f5f9;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #cbd5e1;
+            font-weight: 600;
+            color: #475569;
+        }
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Resource Allocation Report</h1>
+            <p class="subtitle">Generated on ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <div class="section">
+            <h2>👥 Team Members by Project</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc;">Project</th>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc;">Client</th>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc; text-align: center;">Team Count</th>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc;">Team Members</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${projectRows}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>📅 Monthly Allocation by Team Member</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f1f5f9;"></div>
+                    <span>0% - Not allocated</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fef3c7;"></div>
+                    <span>&lt;50% - Under-allocated</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fed7aa;"></div>
+                    <span>50-99% - Partially allocated</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #10b981;"></div>
+                    <span>100% - Fully allocated</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ef4444;"></div>
+                    <span>&gt;100% - Over-allocated</span>
+                </div>
+            </div>
+            <table style="margin-top: 1.5rem;">
+                <thead>
+                    <tr>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc; position: sticky; left: 0; z-index: 10;">Name</th>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc;">Role</th>
+                        <th style="padding: 12px; border: 1px solid #ddd; background: #f8fafc; font-weight: 600;">${monthHeaders}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${allocationRows}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
+            `;
         }
 
         function renderAll() {
