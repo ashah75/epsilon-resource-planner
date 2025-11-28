@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resource Planner</title>
+    <!-- VERSION: 2024-11-28-FIXED-DRAG-DATES -->
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -1411,8 +1412,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const headers = ['Person'];
             for (let i = 0; i < numPeriods; i++) {
                 if (timelineView === 'monthly') {
+                    const monthOffset = Math.floor(currentPeriodOffset / 2);
                     const date = new Date(START_DATE);
-                    date.setMonth(date.getMonth() + currentPeriodOffset / 2 + i);
+                    date.setMonth(date.getMonth() + monthOffset + i);
                     const monthName = date.toLocaleString('default', { month: 'short', year: 'numeric' });
                     headers.push(monthName);
                 } else if (timelineView === 'quarterly') {
@@ -1456,9 +1458,13 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         
                         if (timelineView === 'monthly') {
                             // Each period is a month
-                            actualPeriod = currentPeriodOffset / 2 + period;
+                            // For monthly view, period represents the month index (0-based from currentPeriodOffset)
+                            // currentPeriodOffset represents navigation in biweekly units, convert to months
+                            const monthOffset = Math.floor(currentPeriodOffset / 2); // 2 biweeks = 1 month approx
+                            actualPeriod = monthOffset + period;
                             periodStartDate = new Date(START_DATE);
                             periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
+                            periodStartDate.setDate(1); // First day of month
                             periodEndDate = new Date(periodStartDate);
                             periodEndDate.setMonth(periodEndDate.getMonth() + 1);
                             periodEndDate.setDate(0); // Last day of month
@@ -1575,8 +1581,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         // Modal functions
-        function openModal(type) {
-            if (type === 'assignment') {
+        function openModal(type, skipDefaults = false) {
+            if (type === 'assignment' && !skipDefaults) {
                 // Set default dates to current view's first period
                 const { startDate } = getPeriodDates(currentPeriodOffset);
                 document.getElementById('assignmentStartDate').value = formatDateForInput(startDate);
@@ -1762,8 +1768,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                 // Reset drag state
                 draggedProjectId = null;
                 
-                // Open modal
-                openModal('assignment');
+                // Open modal (skip defaults since we already prefilled)
+                openModal('assignment', true);
                 return;
             }
             
