@@ -40,7 +40,7 @@
         }
 
         header {
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             animation: fadeInDown 0.6s ease-out;
         }
 
@@ -48,7 +48,7 @@
             display: flex;
             align-items: center;
             gap: 2rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0;
         }
 
         .logo-container {
@@ -92,18 +92,27 @@
             .logo-container img {
                 height: 36px;
             }
+
+            .controls {
+                width: 100%;
+            }
+
+            .btn-group {
+                flex-wrap: wrap;
+            }
         }
 
         .subtitle {
             color: var(--text-secondary);
             font-size: 1.1rem;
             letter-spacing: 0.02em;
+            margin: 0;
         }
 
         .controls {
             display: flex;
             gap: 1rem;
-            margin-bottom: 2rem;
+            flex-shrink: 0;
             animation: fadeIn 0.8s ease-out 0.2s both;
         }
 
@@ -829,37 +838,36 @@
                     <h1>Resource Planner</h1>
                     <p class="subtitle">Professional Services Team Management</p>
                 </div>
+                <div class="controls">
+                    <div class="btn-group">
+                        <button class="btn-icon" onclick="openAddPersonModal()">
+                            <span>👤</span>
+                            <div class="tooltip">Add Team Member</div>
+                        </button>
+                        <button class="btn-icon" onclick="openAddClientModal()">
+                            <span>🏢</span>
+                            <div class="tooltip">Add Client</div>
+                        </button>
+                        <button class="btn-icon" onclick="openAddProjectModal()">
+                            <span>📊</span>
+                            <div class="tooltip">Add Project</div>
+                        </button>
+                        <button class="btn-icon" onclick="openAddAssignmentModal()">
+                            <span>📅</span>
+                            <div class="tooltip">Assign to Project</div>
+                        </button>
+                        <button class="btn-icon" onclick="openModal('upload')">
+                            <span>📤</span>
+                            <div class="tooltip">Upload Data</div>
+                        </button>
+                        <button class="btn-icon" onclick="exportData()">
+                            <span>📥</span>
+                            <div class="tooltip">Export Data</div>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
-
-        <div class="controls">
-            <div class="btn-group">
-                <button class="btn-icon" onclick="openAddPersonModal()">
-                    <span>👤</span>
-                    <div class="tooltip">Add Team Member</div>
-                </button>
-                <button class="btn-icon" onclick="openAddClientModal()">
-                    <span>🏢</span>
-                    <div class="tooltip">Add Client</div>
-                </button>
-                <button class="btn-icon" onclick="openAddProjectModal()">
-                    <span>📊</span>
-                    <div class="tooltip">Add Project</div>
-                </button>
-                <button class="btn-icon" onclick="openAddAssignmentModal()">
-                    <span>📅</span>
-                    <div class="tooltip">Assign to Project</div>
-                </button>
-                <button class="btn-icon" onclick="openModal('upload')">
-                    <span>📤</span>
-                    <div class="tooltip">Upload Data</div>
-                </button>
-                <button class="btn-icon" onclick="exportData()">
-                    <span>📥</span>
-                    <div class="tooltip">Export Data</div>
-                </button>
-            </div>
-        </div>
 
         <div class="main-grid">
             <div class="sidebar">
