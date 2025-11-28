@@ -79,6 +79,16 @@ def delete_person(person_id):
     conn.close()
     return jsonify({'success': True}), 200
 
+@app.route('/api/people/<int:person_id>', methods=['PUT'])
+def update_person(person_id):
+    data = request.json
+    conn = get_db()
+    conn.execute('UPDATE people SET name = ?, role = ? WHERE id = ?', 
+                 (data['name'], data['role'], person_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'id': person_id, 'name': data['name'], 'role': data['role']}), 200
+
 # ============= CLIENTS ENDPOINTS =============
 
 @app.route('/api/clients', methods=['GET'])
@@ -118,6 +128,16 @@ def delete_client(client_id):
     conn.close()
     return jsonify({'success': True}), 200
 
+@app.route('/api/clients/<int:client_id>', methods=['PUT'])
+def update_client(client_id):
+    data = request.json
+    conn = get_db()
+    conn.execute('UPDATE clients SET name = ? WHERE id = ?', 
+                 (data['name'], client_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'id': client_id, 'name': data['name']}), 200
+
 # ============= PROJECTS ENDPOINTS =============
 
 @app.route('/api/projects', methods=['GET'])
@@ -148,6 +168,16 @@ def delete_project(project_id):
     conn.commit()
     conn.close()
     return jsonify({'success': True}), 200
+
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+def update_project(project_id):
+    data = request.json
+    conn = get_db()
+    conn.execute('UPDATE projects SET name = ?, client_id = ? WHERE id = ?', 
+                 (data['name'], data['clientId'], project_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'id': project_id, 'name': data['name'], 'clientId': data['clientId']}), 200
 
 # ============= ASSIGNMENTS ENDPOINTS =============
 

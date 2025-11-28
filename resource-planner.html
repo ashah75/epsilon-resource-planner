@@ -804,15 +804,15 @@
 
         <div class="controls">
             <div class="btn-group">
-                <button class="btn-icon" onclick="openModal('person')">
+                <button class="btn-icon" onclick="openAddPersonModal()">
                     <span>👤</span>
                     <div class="tooltip">Add Team Member</div>
                 </button>
-                <button class="btn-icon" onclick="openModal('client')">
+                <button class="btn-icon" onclick="openAddClientModal()">
                     <span>🏢</span>
                     <div class="tooltip">Add Client</div>
                 </button>
-                <button class="btn-icon" onclick="openModal('project')">
+                <button class="btn-icon" onclick="openAddProjectModal()">
                     <span>📊</span>
                     <div class="tooltip">Add Project</div>
                 </button>
@@ -856,7 +856,6 @@
                         <div class="view-toggle">
                             <button class="active" onclick="changeTimelineView('biweekly')" id="view-biweekly">2 Weeks</button>
                             <button onclick="changeTimelineView('monthly')" id="view-monthly">Monthly</button>
-                            <button onclick="changeTimelineView('quarterly')" id="view-quarterly">Quarterly</button>
                         </div>
                         <div class="week-nav">
                             <button class="btn-icon" onclick="changePeriod(-6)" id="prevButton">
@@ -1265,7 +1264,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     <div class="group-content collapsed" id="${groupId}">
                         ${people.map(person => `
                             <div class="person-item">
-                                <div class="item-content">
+                                <div class="item-content" onclick="editPerson(${person.id})" style="cursor: pointer;" title="Click to edit ${person.name}">
                                     <div class="person-name">${person.name}</div>
                                     <div class="person-role">${person.role}</div>
                                 </div>
@@ -1309,7 +1308,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         const projectCount = data.projects.filter(p => p.clientId === client.id).length;
                         return `
                             <div class="client-item">
-                                <div class="item-content">
+                                <div class="item-content" onclick="editClient(${client.id})" style="cursor: pointer;" title="Click to edit ${client.name}">
                                     <div class="client-name">${client.name}</div>
                                     <div class="client-count">${projectCount} project${projectCount !== 1 ? 's' : ''}</div>
                                 </div>
@@ -1369,11 +1368,11 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                                  ondragstart="handleProjectDragStart(event)"
                                  ondragend="handleProjectDragEnd(event)"
                                  style="cursor: grab;">
-                                <div class="item-content">
+                                <div class="item-content" onclick="editProject(${project.id}); event.stopPropagation();" style="cursor: pointer;" title="Click to edit ${project.name}">
                                     <div class="project-name">${project.name}</div>
                                     <div class="project-client">${clientName}</div>
                                 </div>
-                                <div class="delete-icon" onclick="deleteProject(${project.id})" title="Delete ${project.name}">
+                                <div class="delete-icon" onclick="deleteProject(${project.id}); event.stopPropagation();" title="Delete ${project.name}">
                                     <svg viewBox="0 0 24 24">
                                         <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
                                         <path d="M10 11v6M14 11v6"/>
@@ -1591,6 +1590,33 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             document.getElementById(`${type}Modal`).classList.add('active');
         }
 
+        // Helper functions to open modals in "Add" mode
+        function openAddPersonModal() {
+            delete document.getElementById('personModal').dataset.editId;
+            document.querySelector('#personModal h2').textContent = 'Add Team Member';
+            document.querySelector('#personModal button[type="submit"]').textContent = 'Add';
+            document.getElementById('personName').value = '';
+            document.getElementById('personRole').value = '';
+            openModal('person');
+        }
+
+        function openAddClientModal() {
+            delete document.getElementById('clientModal').dataset.editId;
+            document.querySelector('#clientModal h2').textContent = 'Add Client';
+            document.querySelector('#clientModal button[type="submit"]').textContent = 'Add';
+            document.getElementById('clientName').value = '';
+            openModal('client');
+        }
+
+        function openAddProjectModal() {
+            delete document.getElementById('projectModal').dataset.editId;
+            document.querySelector('#projectModal h2').textContent = 'Add Project';
+            document.querySelector('#projectModal button[type="submit"]').textContent = 'Add';
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectClient').value = '';
+            openModal('project');
+        }
+
         function closeModal(type) {
             document.getElementById(`${type}Modal`).classList.remove('active');
         }
@@ -1600,53 +1626,166 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             e.preventDefault();
             const name = document.getElementById('personName').value;
             const role = document.getElementById('personRole').value;
+            const editId = document.getElementById('personModal').dataset.editId;
             
             try {
-                const person = await apiCall('/people', 'POST', { name, role });
-                data.people.push(person);
+                if (editId) {
+                    // Edit mode - update existing person
+                    const updated = await apiCall(`/people/${editId}`, 'PUT', { name, role });
+                    const index = data.people.findIndex(p => p.id == editId);
+                    if (index !== -1) {
+                        data.people[index] = updated;
+                    }
+                    delete document.getElementById('personModal').dataset.editId;
+                } else {
+                    // Add mode - create new person
+                    const person = await apiCall('/people', 'POST', { name, role });
+                    data.people.push(person);
+                }
                 
                 document.getElementById('personName').value = '';
                 document.getElementById('personRole').value = '';
+                
+                // Reset modal title and button
+                document.querySelector('#personModal h2').textContent = 'Add Team Member';
+                document.querySelector('#personModal button[type="submit"]').textContent = 'Add';
+                
                 closeModal('person');
                 renderPeople();
                 renderTimeline();
             } catch (error) {
-                console.error('Failed to add person:', error);
+                console.error('Failed to save person:', error);
             }
+        }
+
+        // Edit person function
+        function editPerson(personId) {
+            const person = data.people.find(p => p.id === personId);
+            if (!person) return;
+            
+            // Store the ID for update
+            document.getElementById('personModal').dataset.editId = personId;
+            
+            // Prefill the form
+            document.getElementById('personName').value = person.name;
+            document.getElementById('personRole').value = person.role;
+            
+            // Change modal title and button text
+            const modalTitle = document.querySelector('#personModal h2');
+            const submitBtn = document.querySelector('#personModal button[type="submit"]');
+            modalTitle.textContent = 'Edit Team Member';
+            submitBtn.textContent = 'Update';
+            
+            openModal('person');
         }
 
         async function addClient(e) {
             e.preventDefault();
             const name = document.getElementById('clientName').value;
+            const editId = document.getElementById('clientModal').dataset.editId;
             
             try {
-                const client = await apiCall('/clients', 'POST', { name });
-                data.clients.push(client);
+                if (editId) {
+                    // Edit mode - update existing client
+                    const updated = await apiCall(`/clients/${editId}`, 'PUT', { name });
+                    const index = data.clients.findIndex(c => c.id == editId);
+                    if (index !== -1) {
+                        data.clients[index] = updated;
+                    }
+                    delete document.getElementById('clientModal').dataset.editId;
+                } else {
+                    // Add mode - create new client
+                    const client = await apiCall('/clients', 'POST', { name });
+                    data.clients.push(client);
+                }
                 
                 document.getElementById('clientName').value = '';
+                
+                // Reset modal title and button
+                document.querySelector('#clientModal h2').textContent = 'Add Client';
+                document.querySelector('#clientModal button[type="submit"]').textContent = 'Add';
+                
                 closeModal('client');
                 renderClients();
             } catch (error) {
-                console.error('Failed to add client:', error);
+                console.error('Failed to save client:', error);
             }
+        }
+
+        // Edit client function
+        function editClient(clientId) {
+            const client = data.clients.find(c => c.id === clientId);
+            if (!client) return;
+            
+            // Store the ID for update
+            document.getElementById('clientModal').dataset.editId = clientId;
+            
+            // Prefill the form
+            document.getElementById('clientName').value = client.name;
+            
+            // Change modal title and button text
+            const modalTitle = document.querySelector('#clientModal h2');
+            const submitBtn = document.querySelector('#clientModal button[type="submit"]');
+            modalTitle.textContent = 'Edit Client';
+            submitBtn.textContent = 'Update';
+            
+            openModal('client');
         }
 
         async function addProject(e) {
             e.preventDefault();
             const name = document.getElementById('projectName').value;
             const clientId = parseInt(document.getElementById('projectClient').value);
+            const editId = document.getElementById('projectModal').dataset.editId;
             
             try {
-                const project = await apiCall('/projects', 'POST', { name, clientId });
-                data.projects.push(project);
+                if (editId) {
+                    // Edit mode - update existing project
+                    const updated = await apiCall(`/projects/${editId}`, 'PUT', { name, clientId });
+                    const index = data.projects.findIndex(p => p.id == editId);
+                    if (index !== -1) {
+                        data.projects[index] = updated;
+                    }
+                    delete document.getElementById('projectModal').dataset.editId;
+                } else {
+                    // Add mode - create new project
+                    const project = await apiCall('/projects', 'POST', { name, clientId });
+                    data.projects.push(project);
+                }
                 
                 document.getElementById('projectName').value = '';
                 document.getElementById('projectClient').value = '';
+                
+                // Reset modal title and button
+                document.querySelector('#projectModal h2').textContent = 'Add Project';
+                document.querySelector('#projectModal button[type="submit"]').textContent = 'Add';
+                
                 closeModal('project');
                 renderProjects();
             } catch (error) {
-                console.error('Failed to add project:', error);
+                console.error('Failed to save project:', error);
             }
+        }
+
+        // Edit project function
+        function editProject(projectId) {
+            const project = data.projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            // Store the ID for update
+            document.getElementById('projectModal').dataset.editId = projectId;
+            
+            // Prefill the form
+            document.getElementById('projectName').value = project.name;
+            document.getElementById('projectClient').value = project.clientId;
+            
+            // Change modal title and button text
+            const modalTitle = document.querySelector('#projectModal h2');
+            const submitBtn = document.querySelector('#projectModal button[type="submit"]');
+            modalTitle.textContent = 'Edit Project';
+            submitBtn.textContent = 'Update';
+            
+            openModal('project');
         }
 
         async function addAssignment(e) {
@@ -2161,7 +2300,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         // Timeline view state
-        let timelineView = 'biweekly'; // 'biweekly', 'monthly', 'quarterly'
+        let timelineView = 'biweekly'; // 'biweekly', 'monthly'
 
         // Change timeline view
         function changeTimelineView(view) {
@@ -2180,9 +2319,6 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             if (view === 'monthly') {
                 prevBtn.querySelector('.tooltip').textContent = 'Previous 6 Months';
                 nextBtn.querySelector('.tooltip').textContent = 'Next 6 Months';
-            } else if (view === 'quarterly') {
-                prevBtn.querySelector('.tooltip').textContent = 'Previous 4 Quarters';
-                nextBtn.querySelector('.tooltip').textContent = 'Next 4 Quarters';
             } else {
                 prevBtn.querySelector('.tooltip').textContent = 'Previous 3 Months';
                 nextBtn.querySelector('.tooltip').textContent = 'Next 3 Months';
