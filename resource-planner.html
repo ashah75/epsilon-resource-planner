@@ -6,6 +6,8 @@
     <title>Resource Planner</title>
     <!-- VERSION: 2024-11-28-FIXED-DRAG-DATES -->
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- SheetJS for XLSX export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --bg-primary: #0a0e14;
@@ -2365,6 +2367,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     }
                 } else if (uploadType === 'csv-assignments') {
                     const assignments = [];
+                    let skipped = 0;
                     for (let i = 1; i < lines.length; i++) {
                         const values = lines[i].split(',').map(v => v.trim());
                         if (values.length >= 4 && values[0]) {
@@ -2372,13 +2375,28 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             const project = data.projects.find(p => p.name === values[1]);
                             if (person && project) {
                                 const percentage = values[4] ? parseInt(values[4]) : 100;
-                                assignments.push({
-                                    personId: person.id,
-                                    projectId: project.id,
-                                    startDate: values[2],
-                                    endDate: values[3],
-                                    percentage: percentage
-                                });
+                                const startDate = values[2];
+                                const endDate = values[3];
+                                
+                                // Check for duplicate: same person, project, and dates
+                                const exists = data.assignments.some(a => 
+                                    a.personId === person.id && 
+                                    a.projectId === project.id && 
+                                    a.startDate === startDate && 
+                                    a.endDate === endDate
+                                );
+                                
+                                if (!exists) {
+                                    assignments.push({
+                                        personId: person.id,
+                                        projectId: project.id,
+                                        startDate: startDate,
+                                        endDate: endDate,
+                                        percentage: percentage
+                                    });
+                                } else {
+                                    skipped++;
+                                }
                             }
                         }
                     }
@@ -2392,6 +2410,11 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             endDate: a.endDate,
                             percentage: a.percentage
                         })));
+                    }
+                    if (skipped > 0) {
+                        console.log(`Skipped ${skipped} duplicate assignment(s)`);
+                        showUploadStatus(`✅ Uploaded ${assignments.length} new assignment(s), skipped ${skipped} duplicate(s)`, 'success');
+                        hasSkipped = true;
                     }
                 }
                 
@@ -2423,47 +2446,31 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         function exportData() {
-            // Prepare export data with names instead of IDs
-            const exportData = {
-                people: data.people.map(p => ({
-                    name: p.name,
-                    role: p.role
-                })),
-                clients: data.clients.map(c => ({
-                    name: c.name
-                })),
-                projects: data.projects.map(p => {
-                    const client = data.clients.find(c => c.id === p.clientId);
-                    return {
-                        name: p.name,
-                        clientName: client ? client.name : 'Unknown'
-                    };
-                }),
-                assignments: data.assignments.map(a => {
-                    const person = data.people.find(p => p.id === a.personId);
-                    const project = data.projects.find(p => p.id === a.projectId);
-                    return {
-                        personName: person ? person.name : 'Unknown',
-                        projectName: project ? project.name : 'Unknown',
-                        startDate: a.startDate,
-                        endDate: a.endDate,
-                        percentage: a.percentage || 100
-                    };
-                })
-            };
+            // Prepare assignments in the format: personName, projectName, startDate, endDate, percentage
+            const assignmentsData = data.assignments.map(a => {
+                const person = data.people.find(p => p.id === a.personId);
+                const project = data.projects.find(p => p.id === a.projectId);
+                return {
+                    personName: person ? person.name : 'Unknown',
+                    projectName: project ? project.name : 'Unknown',
+                    startDate: a.startDate,
+                    endDate: a.endDate,
+                    percentage: a.percentage || 100
+                };
+            });
             
-            // Create download link
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(assignmentsData);
             
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `resource-planner-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Assignments");
+            
+            // Generate filename with current date
+            const filename = `resource-planner-assignments-${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            // Save file
+            XLSX.writeFile(wb, filename);
         }
 
         function renderAll() {
