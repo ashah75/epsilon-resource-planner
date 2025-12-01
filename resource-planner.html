@@ -347,7 +347,7 @@
         .main-grid {
             display: grid;
             grid-template-columns: 280px 1fr;
-            gap: 2rem;
+            gap: 0.75rem;
             animation: fadeIn 1s ease-out 0.4s both;
         }
 
@@ -932,7 +932,13 @@
 
             <div class="timeline-container">
                 <div class="timeline-header">
-                    <div class="timeline-title">Timeline View</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="timeline-title">Timeline View</div>
+                        <button class="btn-icon" onclick="jumpToCurrentMonth()" style="width: 32px; height: 32px;">
+                            <span style="font-size: 1.2rem;">📅</span>
+                            <div class="tooltip">Jump to Current Month</div>
+                        </button>
+                    </div>
                     <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
                         <div class="view-toggle">
                             <button class="active" onclick="changeTimelineView('biweekly')" id="view-biweekly">2 Weeks</button>
@@ -1492,6 +1498,18 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         function renderTimeline() {
             const container = document.getElementById('timelineGrid');
             
+            // Calculate optimal width for person column based on longest name
+            let maxNameLength = 0;
+            data.people.forEach(person => {
+                if (person.name.length > maxNameLength) {
+                    maxNameLength = person.name.length;
+                }
+            });
+            
+            // Calculate width: roughly 8px per character + 40px for padding and icon
+            // Minimum 100px, maximum 200px
+            const personColumnWidth = Math.min(Math.max(maxNameLength * 8 + 40, 100), 200);
+            
             // Determine period configuration based on view
             let numPeriods, periodLength, periodLengthDays;
             if (timelineView === 'monthly') {
@@ -1529,7 +1547,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                 }
             }
             
-            let html = '<div class="timeline-grid">';
+            // Create grid with dynamic column width
+            let html = `<div class="timeline-grid" style="grid-template-columns: ${personColumnWidth}px repeat(6, 1fr);">`;
             
             // Headers
             headers.forEach(header => {
@@ -2563,20 +2582,23 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         function calculateReportData() {
-            // Get all months from assignments
+            // Get all months from assignments - only include months with actual data
             const monthsSet = new Set();
-            data.assignments.forEach(a => {
-                const start = new Date(a.startDate);
-                const end = new Date(a.endDate);
-                
-                let current = new Date(start.getFullYear(), start.getMonth(), 1);
-                const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-                
-                while (current <= endMonth) {
-                    monthsSet.add(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`);
-                    current.setMonth(current.getMonth() + 1);
-                }
-            });
+            
+            if (data.assignments.length > 0) {
+                data.assignments.forEach(a => {
+                    const start = new Date(a.startDate);
+                    const end = new Date(a.endDate);
+                    
+                    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+                    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+                    
+                    while (current <= endMonth) {
+                        monthsSet.add(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`);
+                        current.setMonth(current.getMonth() + 1);
+                    }
+                });
+            }
             
             const months = Array.from(monthsSet).sort();
             
@@ -2901,6 +2923,37 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                 nextBtn.querySelector('.tooltip').textContent = 'Next 3 Months';
             }
             
+            renderTimeline();
+        }
+
+        function jumpToCurrentMonth() {
+            // Switch to monthly view
+            timelineView = 'monthly';
+            
+            // Update active button
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('view-monthly').classList.add('active');
+            
+            // Calculate offset to show current month as first month
+            const now = new Date();
+            const start = new Date(START_DATE);
+            
+            // Calculate months difference between START_DATE and now
+            const monthsDiff = (now.getFullYear() - start.getFullYear()) * 12 
+                             + (now.getMonth() - start.getMonth());
+            
+            // Convert to biweekly periods (approximate: 2 biweeks per month)
+            currentPeriodOffset = monthsDiff * 2;
+            
+            // Update navigation tooltips
+            const prevBtn = document.getElementById('prevButton');
+            const nextBtn = document.getElementById('nextButton');
+            prevBtn.querySelector('.tooltip').textContent = 'Previous 6 Months';
+            nextBtn.querySelector('.tooltip').textContent = 'Next 6 Months';
+            
+            // Render timeline
             renderTimeline();
         }
 
