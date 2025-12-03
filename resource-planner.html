@@ -504,6 +504,8 @@
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
+            flex-wrap: nowrap;
+            min-height: 48px;
         }
         
         .pagination-container {
@@ -514,11 +516,14 @@
             margin-top: 0.75rem;
             border-top: 1px solid var(--border);
             flex-shrink: 0;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
         }
         
         .pagination-info {
-            font-size: 0.875rem;
+            font-size: 0.8125rem;
             color: var(--text-secondary);
+            white-space: nowrap;
         }
         
         .pagination-controls {
@@ -567,15 +572,17 @@
 
         .week-nav {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             align-items: center;
+            white-space: nowrap;
         }
 
         .week-display {
-            font-size: 1rem;
+            font-size: 0.9375rem;
             color: var(--text-secondary);
-            min-width: 200px;
+            min-width: 150px;
             text-align: center;
+            white-space: nowrap;
         }
 
         .timeline-grid {
@@ -625,7 +632,7 @@
         }
 
         .assignment {
-            background: linear-gradient(135deg, var(--accent-primary), #f97316);
+            /* Background color set dynamically per client */
             color: #ffffff;
             padding: 0.35rem;
             border-radius: 4px;
@@ -780,18 +787,21 @@
 
         .heat-map-legend {
             display: flex;
-            gap: 0.75rem;
-            padding: 0.5rem 0.75rem;
+            gap: 0.5rem;
+            padding: 0.4rem 0.6rem;
             background: rgba(31, 41, 55, 0.5);
             border-radius: 6px;
             font-size: 0.75rem;
             border: 1px solid var(--border);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.3rem;
+            white-space: nowrap;
         }
 
         .legend-color {
@@ -997,8 +1007,8 @@
                             <div class="tooltip">Jump to Current Month</div>
                         </button>
                     </div>
-                    <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
-                        <div class="pagination-container" style="margin: 0; border: none; padding: 0;">
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: nowrap; flex-shrink: 0;">
+                        <div class="pagination-container" style="margin: 0; border: none; padding: 0; flex-shrink: 0;">
                             <div class="pagination-info" id="paginationInfoTop">
                                 Showing 1-8 of 50 people
                             </div>
@@ -1015,21 +1025,21 @@
                                 <button onclick="changePage(1)" id="nextPageBtnTop">Next →</button>
                             </div>
                         </div>
-                        <div class="heat-map-legend" style="margin: 0;">
+                        <div class="heat-map-legend" style="margin: 0; flex-shrink: 0;">
                             <div class="legend-item">
-                                <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
-                                <span>0-50%</span>
+                                <div class="legend-color" style="background: #3b82f6; opacity: 0.3;"></div>
+                                <span>Low (0-30%)</span>
                             </div>
                             <div class="legend-item">
-                                <div class="legend-color" style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
-                                <span>51-99%</span>
+                                <div class="legend-color" style="background: #3b82f6; opacity: 0.65;"></div>
+                                <span>Medium (31-70%)</span>
                             </div>
                             <div class="legend-item">
-                                <div class="legend-color" style="background: linear-gradient(135deg, #ef4444, #dc2626);"></div>
-                                <span>100%+</span>
+                                <div class="legend-color" style="background: #3b82f6; opacity: 1.0;"></div>
+                                <span>High (71-100%)</span>
                             </div>
                         </div>
-                        <div class="week-nav">
+                        <div class="week-nav" style="flex-shrink: 0;">
                             <button class="btn-icon" onclick="changePeriod(-6)" id="prevButton">
                                 <span>←</span>
                                 <div class="tooltip">Previous 6 Months</div>
@@ -1346,6 +1356,43 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             if (allocation > 50) return 'heat-1';
             return 'heat-0';
         }
+        
+        // Generate consistent color for each client based on client ID
+        function getClientColor(clientId) {
+            if (!clientId) return '#f97316'; // Default orange for unknown clients
+            
+            // Predefined color palette for clients (vibrant, distinguishable colors)
+            const colors = [
+                '#3b82f6', // Blue
+                '#10b981', // Green
+                '#f59e0b', // Amber
+                '#ef4444', // Red
+                '#8b5cf6', // Purple
+                '#ec4899', // Pink
+                '#14b8a6', // Teal
+                '#f97316', // Orange
+                '#06b6d4', // Cyan
+                '#84cc16', // Lime
+                '#a855f7', // Violet
+                '#f43f5e', // Rose
+                '#0ea5e9', // Sky
+                '#22c55e', // Emerald
+                '#eab308', // Yellow
+                '#6366f1', // Indigo
+            ];
+            
+            // Use client ID to pick a consistent color
+            return colors[clientId % colors.length];
+        }
+        
+        // Get allocation shading opacity (for progressive shading effect)
+        function getAllocationOpacity(percentage) {
+            // Map 0-100% to 0.3-1.0 opacity for progressive shading
+            const minOpacity = 0.3;
+            const maxOpacity = 1.0;
+            const normalized = Math.min(percentage / 100, 1);
+            return minOpacity + (normalized * (maxOpacity - minOpacity));
+        }
 
         // Format date as YYYY-MM-DD for input fields
         function formatDateForInput(date) {
@@ -1354,6 +1401,13 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
+        }
+        
+        // Format date string (YYYY-MM-DD) to mm/dd/yy for tooltips
+        function formatDateForTooltip(dateStr) {
+            const [year, month, day] = dateStr.split('-');
+            const shortYear = year.slice(-2); // Last 2 digits
+            return `${month}/${day}/${shortYear}`;
         }
 
         // Helper function to get date range for a period
@@ -1374,8 +1428,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             if (timelineView === 'monthly') {
                 // For monthly view, actualPeriod represents months from start
                 periodStartDate = new Date(START_DATE);
+                periodStartDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
                 periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
-                periodStartDate.setDate(1); // First day of month
+                
                 periodEndDate = new Date(periodStartDate);
                 periodEndDate.setMonth(periodEndDate.getMonth() + 1);
                 periodEndDate.setDate(0); // Last day of month
@@ -1701,8 +1756,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             const monthOffset = Math.floor(currentPeriodOffset / 2); // 2 biweeks = 1 month approx
                             actualPeriod = monthOffset + period;
                             periodStartDate = new Date(START_DATE);
+                            periodStartDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
                             periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
-                            periodStartDate.setDate(1); // First day of month
                             periodEndDate = new Date(periodStartDate);
                             periodEndDate.setMonth(periodEndDate.getMonth() + 1);
                             periodEndDate.setDate(0); // Last day of month
@@ -1730,9 +1785,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         });
                         
                         const totalAllocation = assignments.reduce((sum, a) => sum + (a.percentage || 100), 0);
-                        const heatClass = getHeatMapClass(totalAllocation);
                         
-                        html += `<div class="timeline-cell ${totalAllocation > 0 ? heatClass : ''}" 
+                        html += `<div class="timeline-cell" 
                                      data-person-id="${person.id}" 
                                      data-period="${actualPeriod}"
                                      ondrop="handleDrop(event)" 
@@ -1743,8 +1797,55 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             assignments.forEach(assignment => {
                                 const project = data.projects.find(p => p.id === assignment.projectId);
                                 const client = data.clients.find(c => c.id === project?.clientId);
-                                // Use the actual stored dates from assignment (no Date conversion to avoid timezone issues)
-                                const dateRangeText = `${assignment.startDate} to ${assignment.endDate}`;
+                                // Format dates as mm/dd/yy - mm/dd/yy for tooltip
+                                const startFormatted = formatDateForTooltip(assignment.startDate);
+                                const endFormatted = formatDateForTooltip(assignment.endDate);
+                                const dateRangeText = `${startFormatted} - ${endFormatted}`;
+                                
+                                // Calculate partial month coverage for visual representation
+                                const assignStart = new Date(assignment.startDate);
+                                const assignEnd = new Date(assignment.endDate);
+                                
+                                // Calculate how much of this period the assignment covers
+                                let startOffset = 0;
+                                let widthPercent = 100;
+                                
+                                // Get total days in the period month
+                                const daysInMonth = new Date(periodStartDate.getFullYear(), periodStartDate.getMonth() + 1, 0).getDate();
+                                
+                                // Calculate which days of the month are covered
+                                const monthStart = new Date(periodStartDate.getFullYear(), periodStartDate.getMonth(), 1);
+                                const monthEnd = new Date(periodStartDate.getFullYear(), periodStartDate.getMonth() + 1, 0);
+                                
+                                // Clamp assignment dates to this month's boundaries
+                                const effectiveStart = assignStart < monthStart ? monthStart : assignStart;
+                                const effectiveEnd = assignEnd > monthEnd ? monthEnd : assignEnd;
+                                
+                                // Calculate day positions within the month (1-based day numbers)
+                                const startDay = effectiveStart.getDate();
+                                const endDay = effectiveEnd.getDate();
+                                
+                                // Calculate percentage positioning
+                                // Start offset: how far into the month does the assignment start
+                                startOffset = ((startDay - 1) / daysInMonth) * 100;
+                                
+                                // Width: how many days are covered
+                                const daysCovered = endDay - startDay + 1;
+                                widthPercent = (daysCovered / daysInMonth) * 100;
+                                
+                                // Minimum width for visibility (at least 15% or enough to show content)
+                                const minWidth = 15;
+                                if (widthPercent < minWidth) {
+                                    widthPercent = minWidth;
+                                    // Adjust offset if needed to keep within bounds
+                                    if (startOffset + widthPercent > 100) {
+                                        startOffset = 100 - widthPercent;
+                                    }
+                                }
+                                
+                                // Get client color and allocation opacity
+                                const clientColor = getClientColor(client?.id);
+                                const allocationOpacity = getAllocationOpacity(assignment.percentage || 100);
                                 
                                 html += `
                                     <div class="assignment" 
@@ -1752,7 +1853,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                                          data-assignment-id="${assignment.id}"
                                          ondragstart="handleDragStart(event)"
                                          onclick="editAssignment(${assignment.id}); event.stopPropagation();"
-                                         style="cursor: pointer;"
+                                         style="cursor: pointer; margin-left: ${startOffset}%; width: ${widthPercent}%; background: ${clientColor}; opacity: ${allocationOpacity};"
                                          title="Click to edit • ${dateRangeText}">
                                         <div class="assignment-delete" onclick="deleteAssignment(${assignment.id}); event.stopPropagation();"></div>
                                         <div class="assignment-project">${project?.name || 'Unknown'}</div>
@@ -1863,20 +1964,18 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const endDate = new Date(START_DATE);
             endDate.setMonth(endDate.getMonth() + monthOffset + 5);
             
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                              'July', 'August', 'September', 'October', 'November', 'December'];
+            // Abbreviated month names (3 letters, camel case)
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             
             const startMonth = monthNames[startDate.getMonth()];
             const endMonth = monthNames[endDate.getMonth()];
-            const startYear = startDate.getFullYear();
-            const endYear = endDate.getFullYear();
+            // Get 2-digit year (last 2 digits)
+            const startYear = String(startDate.getFullYear()).slice(-2);
+            const endYear = String(endDate.getFullYear()).slice(-2);
             
-            let displayText;
-            if (startYear === endYear) {
-                displayText = `${startMonth} - ${endMonth} ${startYear}`;
-            } else {
-                displayText = `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
-            }
+            // Format: "mmm yy - mmm yy"
+            const displayText = `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
             
             document.getElementById('weekDisplay').textContent = displayText;
         }
@@ -1890,10 +1989,21 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         // Modal functions
         function openModal(type, skipDefaults = false) {
             if (type === 'assignment' && !skipDefaults) {
-                // Set default dates to current view's first period
-                const { startDate } = getPeriodDates(currentPeriodOffset);
+                // Set default dates to current view's first period (monthly)
+                const monthOffset = Math.floor(currentPeriodOffset / 2);
+                const firstMonth = monthOffset; // First month in current view
+                
+                // Calculate dates for the first month shown
+                const startDate = new Date(START_DATE);
+                startDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
+                startDate.setMonth(startDate.getMonth() + firstMonth);
+                
+                const endDate = new Date(startDate);
+                endDate.setMonth(endDate.getMonth() + 1);
+                endDate.setDate(0); // Last day of month
+                
                 document.getElementById('assignmentStartDate').value = formatDateForInput(startDate);
-                document.getElementById('assignmentEndDate').value = formatDateForInput(new Date(startDate.getTime() + 13 * 24 * 60 * 60 * 1000));
+                document.getElementById('assignmentEndDate').value = formatDateForInput(endDate);
             }
             document.getElementById(`${type}Modal`).classList.add('active');
         }
