@@ -488,7 +488,12 @@
             border-radius: 12px;
             padding: 0.75rem;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .timeline-content {
+            flex: 1;
         }
 
         .timeline-header {
@@ -498,6 +503,60 @@
             margin-bottom: 0.75rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 0.75rem;
+            margin-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .pagination-controls button {
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-controls button:hover:not(:disabled) {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .pagination-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .pagination-controls select {
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.875rem;
         }
 
         .timeline-title {
@@ -523,7 +582,6 @@
             display: grid;
             grid-template-columns: 150px repeat(6, 1fr);
             gap: 0;
-            min-width: 1000px;
         }
 
         .timeline-header-cell {
@@ -940,9 +998,22 @@
                         </button>
                     </div>
                     <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
-                        <div class="view-toggle">
-                            <button class="active" onclick="changeTimelineView('biweekly')" id="view-biweekly">2 Weeks</button>
-                            <button onclick="changeTimelineView('monthly')" id="view-monthly">Monthly</button>
+                        <div class="pagination-container" style="margin: 0; border: none; padding: 0;">
+                            <div class="pagination-info" id="paginationInfoTop">
+                                Showing 1-8 of 50 people
+                            </div>
+                            <div class="pagination-controls">
+                                <button onclick="changePage(-1)" id="prevPageBtnTop">← Previous</button>
+                                <select id="pageSizeSelectTop" onchange="changePageSize('top')">
+                                    <option value="5">5 per page</option>
+                                    <option value="8" selected>8 per page</option>
+                                    <option value="10">10 per page</option>
+                                    <option value="20">20 per page</option>
+                                    <option value="50">50 per page</option>
+                                    <option value="all">Show All</option>
+                                </select>
+                                <button onclick="changePage(1)" id="nextPageBtnTop">Next →</button>
+                            </div>
                         </div>
                         <div class="heat-map-legend" style="margin: 0;">
                             <div class="legend-item">
@@ -972,7 +1043,27 @@
                     </div>
                 </div>
                 
-                <div id="timelineGrid"></div>
+                <div class="timeline-content">
+                    <div id="timelineGrid"></div>
+                </div>
+                
+                <div class="pagination-container">
+                    <div class="pagination-info" id="paginationInfo">
+                        Showing 1-10 of 50 people
+                    </div>
+                    <div class="pagination-controls">
+                        <button onclick="changePage(-1)" id="prevPageBtn">← Previous</button>
+                        <select id="pageSizeSelect" onchange="changePageSize()">
+                            <option value="5">5 per page</option>
+                            <option value="8" selected>8 per page</option>
+                            <option value="10">10 per page</option>
+                            <option value="20">20 per page</option>
+                            <option value="50">50 per page</option>
+                            <option value="all">Show All</option>
+                        </select>
+                        <button onclick="changePage(1)" id="nextPageBtn">Next →</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1157,6 +1248,10 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         const START_DATE = new Date(2026, 0, 1); // January 1, 2026
         let currentPeriodOffset = 0; // Offset in 2-week periods
         let nextId = { person: 4, client: 3, project: 3 };
+        
+        // Pagination variables
+        let currentPage = 1;
+        let pageSize = 8;
 
         // API Helper Functions
         async function apiCall(endpoint, method = 'GET', body = null) {
@@ -1561,7 +1656,25 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     <div class="empty-cell">Add team members to start planning</div>
                 </div>`;
             } else {
-                data.people.forEach(person => {
+                // Calculate pagination
+                const totalPeople = data.people.length;
+                const showAll = pageSize === 'all';
+                const itemsPerPage = showAll ? totalPeople : parseInt(pageSize);
+                const totalPages = showAll ? 1 : Math.ceil(totalPeople / itemsPerPage);
+                
+                // Ensure current page is valid
+                if (currentPage > totalPages) currentPage = totalPages;
+                if (currentPage < 1) currentPage = 1;
+                
+                // Calculate start and end indices
+                const startIndex = showAll ? 0 : (currentPage - 1) * itemsPerPage;
+                const endIndex = showAll ? totalPeople : Math.min(startIndex + itemsPerPage, totalPeople);
+                
+                // Get paginated people
+                const paginatedPeople = data.people.slice(startIndex, endIndex);
+                
+                // Render only the people for current page
+                paginatedPeople.forEach(person => {
                     html += '<div class="timeline-row">';
                     
                     // Person name cell with allocation status
@@ -1630,9 +1743,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             assignments.forEach(assignment => {
                                 const project = data.projects.find(p => p.id === assignment.projectId);
                                 const client = data.clients.find(c => c.id === project?.clientId);
-                                const startDate = new Date(assignment.startDate);
-                                const endDate = new Date(assignment.endDate);
-                                const dateRangeText = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+                                // Use the actual stored dates from assignment (no Date conversion to avoid timezone issues)
+                                const dateRangeText = `${assignment.startDate} to ${assignment.endDate}`;
                                 
                                 html += `
                                     <div class="assignment" 
@@ -1661,6 +1773,82 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             html += '</div>';
             container.innerHTML = html;
+            
+            // Update pagination info
+            updatePaginationInfo();
+        }
+        
+        function updatePaginationInfo() {
+            const totalPeople = data.people.length;
+            const showAll = pageSize === 'all';
+            const itemsPerPage = showAll ? totalPeople : parseInt(pageSize);
+            const totalPages = showAll ? 1 : Math.ceil(totalPeople / itemsPerPage);
+            
+            const startIndex = showAll ? 0 : (currentPage - 1) * itemsPerPage;
+            const endIndex = showAll ? totalPeople : Math.min(startIndex + itemsPerPage, totalPeople);
+            
+            // Update both top and bottom pagination displays
+            const paginationInfo = document.getElementById('paginationInfo');
+            const paginationInfoTop = document.getElementById('paginationInfoTop');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const prevBtnTop = document.getElementById('prevPageBtnTop');
+            const nextBtnTop = document.getElementById('nextPageBtnTop');
+            
+            let infoText;
+            if (totalPeople === 0) {
+                infoText = 'No people to display';
+            } else if (showAll) {
+                infoText = `Showing all ${totalPeople} people`;
+            } else {
+                infoText = `Showing ${startIndex + 1}-${endIndex} of ${totalPeople} people (Page ${currentPage} of ${totalPages})`;
+            }
+            
+            // Update both info displays
+            paginationInfo.textContent = infoText;
+            paginationInfoTop.textContent = infoText;
+            
+            // Disable/enable pagination buttons (both top and bottom)
+            const disablePrev = currentPage <= 1 || showAll;
+            const disableNext = currentPage >= totalPages || showAll;
+            
+            prevBtn.disabled = disablePrev;
+            nextBtn.disabled = disableNext;
+            prevBtnTop.disabled = disablePrev;
+            nextBtnTop.disabled = disableNext;
+        }
+        
+        function changePage(delta) {
+            const totalPeople = data.people.length;
+            const showAll = pageSize === 'all';
+            if (showAll) return;
+            
+            const itemsPerPage = parseInt(pageSize);
+            const totalPages = Math.ceil(totalPeople / itemsPerPage);
+            
+            currentPage += delta;
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            
+            renderTimeline();
+        }
+        
+        function changePageSize(source = 'bottom') {
+            const select = source === 'top' 
+                ? document.getElementById('pageSizeSelectTop') 
+                : document.getElementById('pageSizeSelect');
+            pageSize = select.value;
+            
+            // Sync both dropdowns
+            const otherSelect = source === 'top'
+                ? document.getElementById('pageSizeSelect')
+                : document.getElementById('pageSizeSelectTop');
+            if (otherSelect) {
+                otherSelect.value = pageSize;
+            }
+            
+            currentPage = 1; // Reset to first page when changing page size
+            renderTimeline();
         }
 
         function updateWeekDisplay() {
@@ -1933,8 +2121,10 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             try {
                 if (editId) {
-                    // Edit mode - delete old and create new (since we don't have PUT for assignments)
+                    // Edit mode - only update the single entry that was clicked
+                    // Do NOT create multiple month entries - just update this one
                     await apiCall(`/assignments/${editId}`, 'DELETE');
+                    
                     const result = await apiCall('/assignments', 'POST', { 
                         personId, 
                         projectId, 
@@ -1943,7 +2133,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         percentage 
                     });
                     
-                    // Update local data
+                    // Update local data - replace the single entry
                     const index = data.assignments.findIndex(a => a.id == editId);
                     if (index !== -1) {
                         data.assignments[index] = {
@@ -1955,25 +2145,43 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             percentage
                         };
                     }
+                    
                     delete document.getElementById('assignmentModal').dataset.editId;
                 } else {
-                    // Add mode - create new
-                    const result = await apiCall('/assignments', 'POST', { 
-                        personId, 
-                        projectId, 
-                        startDate, 
-                        endDate, 
-                        percentage 
-                    });
+                    // Add mode - create one assignment per month
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    let current = new Date(start.getFullYear(), start.getMonth(), 1);
+                    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
                     
-                    data.assignments.push({ 
-                        id: result.id,
-                        personId, 
-                        projectId, 
-                        startDate, 
-                        endDate, 
-                        percentage 
-                    });
+                    // Create assignment for each month in range
+                    while (current <= endMonth) {
+                        const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+                        const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+                        
+                        // Use actual start/end dates if within this month
+                        const assignmentStart = start >= monthStart && start <= monthEnd ? startDate : monthStart.toISOString().split('T')[0];
+                        const assignmentEnd = end >= monthStart && end <= monthEnd ? endDate : monthEnd.toISOString().split('T')[0];
+                        
+                        const result = await apiCall('/assignments', 'POST', { 
+                            personId, 
+                            projectId, 
+                            startDate: assignmentStart, 
+                            endDate: assignmentEnd, 
+                            percentage 
+                        });
+                        
+                        data.assignments.push({ 
+                            id: result.id,
+                            personId, 
+                            projectId, 
+                            startDate: assignmentStart, 
+                            endDate: assignmentEnd, 
+                            percentage 
+                        });
+                        
+                        current.setMonth(current.getMonth() + 1);
+                    }
                 }
                 
                 document.getElementById('assignmentPerson').value = '';
@@ -2899,7 +3107,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         // Timeline view state
-        let timelineView = 'biweekly'; // 'biweekly', 'monthly'
+        let timelineView = 'monthly'; // Only monthly view available
 
         // Change timeline view
         function changeTimelineView(view) {
