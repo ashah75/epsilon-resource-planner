@@ -561,7 +561,7 @@
 
         .timeline-title {
             font-family: 'Crimson Pro', serif;
-            font-size: 1.5rem;
+            font-size: 1rem;
             font-weight: 600;
         }
 
@@ -1032,12 +1032,12 @@
                         <div class="week-nav">
                             <button class="btn-icon" onclick="changePeriod(-6)" id="prevButton">
                                 <span>←</span>
-                                <div class="tooltip">Previous 3 Months</div>
+                                <div class="tooltip">Previous 6 Months</div>
                             </button>
                             <div class="week-display" id="weekDisplay"></div>
                             <button class="btn-icon" onclick="changePeriod(6)" id="nextButton">
                                 <span>→</span>
-                                <div class="tooltip">Next 3 Months</div>
+                                <div class="tooltip">Next 6 Months</div>
                             </button>
                         </div>
                     </div>
@@ -1852,8 +1852,16 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         function updateWeekDisplay() {
-            const { startDate } = getPeriodDates(currentPeriodOffset);
-            const { endDate } = getPeriodDates(currentPeriodOffset + 5);
+            // For monthly view, show the actual 6 months displayed
+            const monthOffset = Math.floor(currentPeriodOffset / 2); // Convert biweekly to monthly offset
+            
+            // First month shown
+            const startDate = new Date(START_DATE);
+            startDate.setMonth(startDate.getMonth() + monthOffset);
+            
+            // Last month shown (6 months total)
+            const endDate = new Date(START_DATE);
+            endDate.setMonth(endDate.getMonth() + monthOffset + 5);
             
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                               'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1865,11 +1873,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             let displayText;
             if (startYear === endYear) {
-                if (startMonth === endMonth) {
-                    displayText = `${startMonth} ${startYear}`;
-                } else {
-                    displayText = `${startMonth} - ${endMonth} ${startYear}`;
-                }
+                displayText = `${startMonth} - ${endMonth} ${startYear}`;
             } else {
                 displayText = `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
             }
@@ -3124,8 +3128,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const nextBtn = document.getElementById('nextButton');
             
             if (view === 'monthly') {
-                prevBtn.querySelector('.tooltip').textContent = 'Previous 6 Months';
-                nextBtn.querySelector('.tooltip').textContent = 'Next 6 Months';
+                prevBtn.querySelector('.tooltip').textContent = 'Shift Back 3 Months';
+                nextBtn.querySelector('.tooltip').textContent = 'Shift Forward 3 Months';
             } else {
                 prevBtn.querySelector('.tooltip').textContent = 'Previous 3 Months';
                 nextBtn.querySelector('.tooltip').textContent = 'Next 3 Months';
@@ -3135,14 +3139,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         }
 
         function jumpToCurrentMonth() {
-            // Switch to monthly view
+            // Already in monthly view (only view available)
             timelineView = 'monthly';
-            
-            // Update active button
-            document.querySelectorAll('.view-toggle button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.getElementById('view-monthly').classList.add('active');
             
             // Calculate offset to show current month as first month
             const now = new Date();
@@ -3161,8 +3159,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             prevBtn.querySelector('.tooltip').textContent = 'Previous 6 Months';
             nextBtn.querySelector('.tooltip').textContent = 'Next 6 Months';
             
-            // Render timeline
+            // Render timeline and update display
             renderTimeline();
+            updateWeekDisplay();
         }
 
         // Close modal on outside click
