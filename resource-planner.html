@@ -1320,8 +1320,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         // Helper function to get which periods a date range spans
         function getPeriodsForDateRange(startDate, endDate) {
             const periods = new Set();
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            // Parse dates as LOCAL, not UTC
+            const start = parseDateString(startDate);
+            const end = parseDateString(endDate);
             
             let currentPeriod = Math.floor((start - START_DATE) / (14 * 24 * 60 * 60 * 1000));
             const endPeriod = Math.floor((end - START_DATE) / (14 * 24 * 60 * 60 * 1000));
@@ -1336,8 +1337,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
         // Check if a date range overlaps with a period
         function dateRangeOverlapsPeriod(startDate, endDate, period) {
             const { startDate: periodStart, endDate: periodEnd } = getPeriodDates(period);
-            const assignStart = new Date(startDate);
-            const assignEnd = new Date(endDate);
+            // Parse dates as LOCAL, not UTC
+            const assignStart = parseDateString(startDate);
+            const assignEnd = parseDateString(endDate);
             
             // Check if ranges overlap
             return assignStart <= periodEnd && assignEnd >= periodStart;
@@ -1403,6 +1405,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             return `${year}-${month}-${day}`;
         }
         
+        // Parse YYYY-MM-DD string as local date (not UTC)
+        function parseDateString(dateStr) {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+        
         // Format date string (YYYY-MM-DD) to mm/dd/yy for tooltips
         function formatDateForTooltip(dateStr) {
             const [year, month, day] = dateStr.split('-');
@@ -1427,13 +1435,13 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             if (timelineView === 'monthly') {
                 // For monthly view, actualPeriod represents months from start
-                periodStartDate = new Date(START_DATE);
-                periodStartDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
-                periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
+                // Use explicit constructor to avoid any Date copy issues
+                const startYear = 2026;
+                const startMonth = 0; // January
+                const targetMonth = startMonth + actualPeriod;
                 
-                periodEndDate = new Date(periodStartDate);
-                periodEndDate.setMonth(periodEndDate.getMonth() + 1);
-                periodEndDate.setDate(0); // Last day of month
+                periodStartDate = new Date(startYear, targetMonth, 1);
+                periodEndDate = new Date(startYear, targetMonth + 1, 0);
             } else if (timelineView === 'quarterly') {
                 // For quarterly view, actualPeriod is in biweekly units
                 const quarter = Math.floor(actualPeriod / 6);
@@ -1681,8 +1689,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             for (let i = 0; i < numPeriods; i++) {
                 if (timelineView === 'monthly') {
                     const monthOffset = Math.floor(currentPeriodOffset / 2);
-                    const date = new Date(START_DATE);
-                    date.setMonth(date.getMonth() + monthOffset + i);
+                    const targetMonth = monthOffset + i;
+                    const date = new Date(2026, targetMonth, 1);
                     const monthName = date.toLocaleString('default', { month: 'short', year: 'numeric' });
                     headers.push(monthName);
                 } else if (timelineView === 'quarterly') {
@@ -1755,12 +1763,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                             // currentPeriodOffset represents navigation in biweekly units, convert to months
                             const monthOffset = Math.floor(currentPeriodOffset / 2); // 2 biweeks = 1 month approx
                             actualPeriod = monthOffset + period;
-                            periodStartDate = new Date(START_DATE);
-                            periodStartDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
-                            periodStartDate.setMonth(periodStartDate.getMonth() + actualPeriod);
-                            periodEndDate = new Date(periodStartDate);
-                            periodEndDate.setMonth(periodEndDate.getMonth() + 1);
-                            periodEndDate.setDate(0); // Last day of month
+                            // Use explicit Date constructor to avoid rollover issues
+                            periodStartDate = new Date(2026, actualPeriod, 1);
+                            periodEndDate = new Date(2026, actualPeriod + 1, 0);
                         } else if (timelineView === 'quarterly') {
                             // Each period is a quarter (3 months)
                             const baseQuarter = Math.floor(currentPeriodOffset / 6);
@@ -1779,8 +1784,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         // Filter assignments that overlap with this period
                         const assignments = data.assignments.filter(a => {
                             if (a.personId !== person.id) return false;
-                            const assignStart = new Date(a.startDate);
-                            const assignEnd = new Date(a.endDate);
+                            // Parse dates as LOCAL, not UTC, to avoid timezone shift
+                            const assignStart = parseDateString(a.startDate);
+                            const assignEnd = parseDateString(a.endDate);
                             return assignStart <= periodEndDate && assignEnd >= periodStartDate;
                         });
                         
@@ -1789,9 +1795,12 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         html += `<div class="timeline-cell" 
                                      data-person-id="${person.id}" 
                                      data-period="${actualPeriod}"
+                                     data-period-start="${formatDateForInput(periodStartDate)}"
+                                     data-period-end="${formatDateForInput(periodEndDate)}"
                                      ondrop="handleDrop(event)" 
                                      ondragover="handleDragOver(event)"
-                                     ondragleave="handleDragLeave(event)">`;
+                                     ondragleave="handleDragLeave(event)"
+                                     title="Period: ${formatDateForInput(periodStartDate)} to ${formatDateForInput(periodEndDate)}">`;
                         
                         if (assignments.length > 0) {
                             assignments.forEach(assignment => {
@@ -1803,8 +1812,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                                 const dateRangeText = `${startFormatted} - ${endFormatted}`;
                                 
                                 // Calculate partial month coverage for visual representation
-                                const assignStart = new Date(assignment.startDate);
-                                const assignEnd = new Date(assignment.endDate);
+                                // Parse dates as LOCAL, not UTC
+                                const assignStart = parseDateString(assignment.startDate);
+                                const assignEnd = parseDateString(assignment.endDate);
                                 
                                 // Calculate how much of this period the assignment covers
                                 let startOffset = 0;
@@ -1956,13 +1966,11 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             // For monthly view, show the actual 6 months displayed
             const monthOffset = Math.floor(currentPeriodOffset / 2); // Convert biweekly to monthly offset
             
-            // First month shown
-            const startDate = new Date(START_DATE);
-            startDate.setMonth(startDate.getMonth() + monthOffset);
+            // First month shown - use explicit constructor
+            const startDate = new Date(2026, monthOffset, 1);
             
             // Last month shown (6 months total)
-            const endDate = new Date(START_DATE);
-            endDate.setMonth(endDate.getMonth() + monthOffset + 5);
+            const endDate = new Date(2026, monthOffset + 5, 1);
             
             // Abbreviated month names (3 letters, camel case)
             const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
@@ -1993,14 +2001,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                 const monthOffset = Math.floor(currentPeriodOffset / 2);
                 const firstMonth = monthOffset; // First month in current view
                 
-                // Calculate dates for the first month shown
-                const startDate = new Date(START_DATE);
-                startDate.setDate(1); // Set to 1st BEFORE changing month to avoid rollover
-                startDate.setMonth(startDate.getMonth() + firstMonth);
-                
-                const endDate = new Date(startDate);
-                endDate.setMonth(endDate.getMonth() + 1);
-                endDate.setDate(0); // Last day of month
+                // Calculate dates for the first month shown - use explicit constructor
+                const startDate = new Date(2026, firstMonth, 1);
+                const endDate = new Date(2026, firstMonth + 1, 0);
                 
                 document.getElementById('assignmentStartDate').value = formatDateForInput(startDate);
                 document.getElementById('assignmentEndDate').value = formatDateForInput(endDate);
@@ -2227,8 +2230,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const percentage = parseInt(document.getElementById('assignmentPercentage').value);
             const editId = document.getElementById('assignmentModal').dataset.editId;
             
-            // Validate dates
-            if (new Date(startDate) > new Date(endDate)) {
+            // Validate dates - parse as LOCAL dates
+            if (parseDateString(startDate) > parseDateString(endDate)) {
                 alert('End date must be after or equal to start date');
                 return;
             }
@@ -2263,8 +2266,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     delete document.getElementById('assignmentModal').dataset.editId;
                 } else {
                     // Add mode - create one assignment per month
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
+                    // Parse dates as LOCAL, not UTC
+                    const start = parseDateString(startDate);
+                    const end = parseDateString(endDate);
                     let current = new Date(start.getFullYear(), start.getMonth(), 1);
                     const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
                     
@@ -2274,8 +2278,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                         const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
                         
                         // Use actual start/end dates if within this month
-                        const assignmentStart = start >= monthStart && start <= monthEnd ? startDate : monthStart.toISOString().split('T')[0];
-                        const assignmentEnd = end >= monthStart && end <= monthEnd ? endDate : monthEnd.toISOString().split('T')[0];
+                        // Use formatDateForInput to avoid timezone issues
+                        const assignmentStart = start >= monthStart && start <= monthEnd ? startDate : formatDateForInput(monthStart);
+                        const assignmentEnd = end >= monthStart && end <= monthEnd ? endDate : formatDateForInput(monthEnd);
                         
                         const result = await apiCall('/assignments', 'POST', { 
                             personId, 
@@ -2387,10 +2392,19 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const targetPersonId = parseInt(event.currentTarget.dataset.personId);
             const targetPeriod = parseInt(event.currentTarget.dataset.period);
             
+            console.log('=== DRAG DROP DEBUG ===');
+            console.log('targetPeriod from data-period:', targetPeriod);
+            
             // Handle PROJECT drop - open modal with prefilled data
             if (draggedProjectId) {
                 // Calculate period dates based on current timeline view
                 const { startDate: periodStart, endDate: periodEnd } = getPeriodDatesForView(targetPeriod);
+                
+                console.log('getPeriodDatesForView returned:');
+                console.log('  periodStart:', periodStart);
+                console.log('  periodStart ISO:', periodStart.toISOString());
+                console.log('  periodEnd:', periodEnd);
+                console.log('  periodEnd ISO:', periodEnd.toISOString());
                 
                 // Default end date based on view
                 let defaultEndDate;
@@ -2406,11 +2420,19 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
                     defaultEndDate.setDate(defaultEndDate.getDate() + 13);
                 }
                 
+                const startFormatted = formatDateForInput(periodStart);
+                const endFormatted = formatDateForInput(defaultEndDate);
+                
+                console.log('Formatted dates:');
+                console.log('  startFormatted:', startFormatted);
+                console.log('  endFormatted:', endFormatted);
+                console.log('======================');
+                
                 // Prefill the assignment modal
                 document.getElementById('assignmentPerson').value = targetPersonId;
                 document.getElementById('assignmentProject').value = draggedProjectId;
-                document.getElementById('assignmentStartDate').value = formatDateForInput(periodStart);
-                document.getElementById('assignmentEndDate').value = formatDateForInput(defaultEndDate);
+                document.getElementById('assignmentStartDate').value = startFormatted;
+                document.getElementById('assignmentEndDate').value = endFormatted;
                 document.getElementById('assignmentPercentage').value = '100';
                 
                 // Reset drag state
@@ -2429,8 +2451,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             if (!assignment) return;
             
             // Calculate duration of original assignment
-            const originalStart = new Date(assignment.startDate);
-            const originalEnd = new Date(assignment.endDate);
+            // Parse dates as LOCAL, not UTC
+            const originalStart = parseDateString(assignment.startDate);
+            const originalEnd = parseDateString(assignment.endDate);
             const durationDays = Math.ceil((originalEnd - originalStart) / (24 * 60 * 60 * 1000));
             
             // Get start date of target period (using timeline-view-aware calculation)
@@ -2909,8 +2932,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             if (data.assignments.length > 0) {
                 data.assignments.forEach(a => {
-                    const start = new Date(a.startDate);
-                    const end = new Date(a.endDate);
+                    // Parse dates as LOCAL, not UTC
+                    const start = parseDateString(a.startDate);
+                    const end = parseDateString(a.endDate);
                     
                     let current = new Date(start.getFullYear(), start.getMonth(), 1);
                     const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
@@ -2958,8 +2982,9 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             
             // Calculate allocations
             data.assignments.forEach(assignment => {
-                const start = new Date(assignment.startDate);
-                const end = new Date(assignment.endDate);
+                // Parse dates as LOCAL, not UTC
+                const start = parseDateString(assignment.startDate);
+                const end = parseDateString(assignment.endDate);
                 const percentage = assignment.percentage || 100;
                 
                 let current = new Date(start.getFullYear(), start.getMonth(), 1);
