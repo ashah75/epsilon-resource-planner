@@ -374,6 +374,22 @@
             letter-spacing: 0.1em;
             color: var(--text-secondary);
             margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .count-badge {
+            background: var(--accent-primary);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            min-width: 24px;
+            text-align: center;
+            letter-spacing: normal;
+            text-transform: none;
         }
 
         .person-item, .client-item, .project-item {
@@ -983,17 +999,26 @@
         <div class="main-grid">
             <div class="sidebar">
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Projects</div>
+                    <div class="sidebar-title">
+                        Projects
+                        <span class="count-badge" id="projectsCount">0</span>
+                    </div>
                     <div id="projectsList"></div>
                 </div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Team Members</div>
+                    <div class="sidebar-title">
+                        Team Members
+                        <span class="count-badge" id="peopleCount">0</span>
+                    </div>
                     <div id="peopleList"></div>
                 </div>
 
                 <div class="sidebar-section">
-                    <div class="sidebar-title">Clients</div>
+                    <div class="sidebar-title">
+                        Clients
+                        <span class="count-badge" id="clientsCount">0</span>
+                    </div>
                     <div id="clientsList"></div>
                 </div>
             </div>
@@ -1479,6 +1504,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const container = document.getElementById('peopleList');
             if (data.people.length === 0) {
                 container.innerHTML = '<div class="empty-cell">No team members</div>';
+                document.getElementById('peopleCount').textContent = '0';
                 return;
             }
             
@@ -1532,6 +1558,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             });
             
             container.innerHTML = html;
+            // Update count badge
+            document.getElementById('peopleCount').textContent = data.people.length;
             updateAssignmentSelects();
         }
 
@@ -1539,6 +1567,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const container = document.getElementById('clientsList');
             if (data.clients.length === 0) {
                 container.innerHTML = '<div class="empty-cell">No clients</div>';
+                document.getElementById('clientsCount').textContent = '0';
                 return;
             }
             
@@ -1583,6 +1612,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             `;
             
             container.innerHTML = html;
+            // Update count badge
+            document.getElementById('clientsCount').textContent = data.clients.length;
             updateProjectClientSelect();
         }
 
@@ -1590,6 +1621,7 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             const container = document.getElementById('projectsList');
             if (data.projects.length === 0) {
                 container.innerHTML = '<div class="empty-cell">No projects</div>';
+                document.getElementById('projectsCount').textContent = '0';
                 return;
             }
             
@@ -1650,6 +1682,8 @@ Jane Smith,Cloud Migration,2026-01-15,2026-02-28,50</pre>
             });
             
             container.innerHTML = html;
+            // Update count badge
+            document.getElementById('projectsCount').textContent = data.projects.length;
             updateAssignmentSelects();
         }
 
