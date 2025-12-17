@@ -193,6 +193,24 @@ class AssignmentsRepository(BaseRepository):
     def delete(self, assignment_id: int) -> None:
         self._execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
+    def update(
+        self,
+        assignment_id: int,
+        person_id: int,
+        project_id: int,
+        start_date: str,
+        end_date: str,
+        percentage: int,
+    ) -> None:
+        self._execute(
+            """
+            UPDATE assignments
+            SET person_id = ?, project_id = ?, start_date = ?, end_date = ?, percentage = ?
+            WHERE id = ?
+            """,
+            (person_id, project_id, start_date, end_date, percentage, assignment_id),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Services
@@ -480,6 +498,38 @@ class ResourcePlannerAPI:
                     }
                 ),
                 201,
+            )
+
+        @app.route("/api/assignments/<int:assignment_id>", methods=["PUT"])
+        def update_assignment(assignment_id: int):
+            data = ValidationService.require_json({"personId", "projectId"})
+            percentage = int(data.get("percentage", 100))
+
+            if "startDate" in data and "endDate" in data:
+                start_date = data["startDate"]
+                end_date = data["endDate"]
+            elif "period" in data:
+                dates = ValidationService.convert_period_to_dates(int(data["period"]))
+                start_date = dates["start"]
+                end_date = dates["end"]
+            else:
+                abort(400, description="Either startDate/endDate or period is required")
+
+            self.assignments_repo.update(
+                assignment_id, data["personId"], data["projectId"], start_date, end_date, percentage
+            )
+            return (
+                jsonify(
+                    {
+                        "id": assignment_id,
+                        "personId": data["personId"],
+                        "projectId": data["projectId"],
+                        "startDate": start_date,
+                        "endDate": end_date,
+                        "percentage": percentage,
+                    }
+                ),
+                200,
             )
 
         @app.route("/api/assignments/<int:assignment_id>", methods=["DELETE"])

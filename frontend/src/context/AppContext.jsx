@@ -139,6 +139,20 @@ export function AppProvider({ children }) {
     setAssignments([...assignments, newAssignment]);
     return newAssignment;
   }
+
+  async function updateAssignment(id, assignment) {
+    const result = await api.updateAssignment(id, assignment);
+    const updatedAssignment = {
+      id: result.id,
+      personId: result.personId,
+      projectId: result.projectId,
+      startDate: result.startDate,
+      endDate: result.endDate,
+      percentage: result.percentage ?? assignment.percentage ?? 100
+    };
+    setAssignments(assignments.map(a => (a.id === id ? updatedAssignment : a)));
+    return updatedAssignment;
+  }
   
   async function deleteAssignment(id) {
     await api.deleteAssignment(id);
@@ -240,6 +254,7 @@ export function AppProvider({ children }) {
     updateProject,
     deleteProject,
     addAssignment,
+    updateAssignment,
     deleteAssignment,
     moveAssignment,
     bulkUploadPeople,
