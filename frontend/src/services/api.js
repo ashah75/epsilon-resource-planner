@@ -89,6 +89,10 @@ class APIService {
     return this.request('/assignments', 'POST', assignment);
   }
 
+  async updateAssignment(id, assignment) {
+    return this.request(`/assignments/${id}`, 'PUT', assignment);
+  }
+
   async deleteAssignment(id) {
     return this.request(`/assignments/${id}`, 'DELETE');
   }

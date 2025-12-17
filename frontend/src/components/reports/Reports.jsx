@@ -32,9 +32,9 @@ export default function Reports({ people, clients, projects, assignments, onBack
       const personData = { person };
       months.forEach((month, idx) => {
         const monthAssignments = assignments.filter(a => {
-          if (a.person_id !== person.id) return false;
-          const assignStart = parseDateString(a.start_date);
-          const assignEnd = parseDateString(a.end_date);
+          if (a.personId !== person.id) return false;
+          const assignStart = parseDateString(a.startDate);
+          const assignEnd = parseDateString(a.endDate);
           return assignStart <= month.endDate && assignEnd >= month.startDate;
         });
         const total = monthAssignments.reduce((sum, a) => sum + a.percentage, 0);
@@ -47,10 +47,10 @@ export default function Reports({ people, clients, projects, assignments, onBack
   // Calculate project distribution
   const projectDistribution = useMemo(() => {
     return projects.map(project => {
-      const projectAssignments = assignments.filter(a => a.project_id === project.id);
-      const uniquePeople = [...new Set(projectAssignments.map(a => a.person_id))];
+      const projectAssignments = assignments.filter(a => a.projectId === project.id);
+      const uniquePeople = [...new Set(projectAssignments.map(a => a.personId))];
       const totalAllocation = projectAssignments.reduce((sum, a) => sum + a.percentage, 0);
-      const client = clients.find(c => c.id === project.client_id);
+      const client = clients.find(c => c.id === project.clientId);
       
       return {
         project,
@@ -65,12 +65,12 @@ export default function Reports({ people, clients, projects, assignments, onBack
   // Calculate client engagement
   const clientEngagement = useMemo(() => {
     return clients.map(client => {
-      const clientProjects = projects.filter(p => p.client_id === client.id);
+      const clientProjects = projects.filter(p => p.clientId === client.id);
       const clientAssignments = assignments.filter(a => {
-        const project = projects.find(p => p.id === a.project_id);
-        return project && project.client_id === client.id;
+        const project = projects.find(p => p.id === a.projectId);
+        return project && project.clientId === client.id;
       });
-      const uniquePeople = [...new Set(clientAssignments.map(a => a.person_id))];
+      const uniquePeople = [...new Set(clientAssignments.map(a => a.personId))];
       const totalAllocation = clientAssignments.reduce((sum, a) => sum + a.percentage, 0);
       
       return {
