@@ -110,31 +110,16 @@ export default function Timeline({ onAddAssignment, onEditAssignment }) {
     setCurrentPage(1);
   };
   
-  const paginationInfo = totalPeople === 0 
-    ? 'No people to display' 
-    : showAll 
-    ? `Showing all ${totalPeople} people` 
+  const paginationInfo = totalPeople === 0
+    ? 'No people to display'
+    : showAll
+    ? `Showing all ${totalPeople} people`
     : `Showing ${startIndex + 1}-${endIndex} of ${totalPeople} people (Page ${currentPage} of ${totalPages})`;
-  
+
   return (
-    <div style={{
-      background: 'var(--bg-secondary)',
-      borderRadius: '12px',
-      padding: '0.75rem',
-      border: '1px solid var(--border)',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <div className="timeline-shell">
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '0.75rem',
-        paddingBottom: '0.5rem',
-        borderBottom: '1px solid var(--border)',
-        flexShrink: 0
-      }}>
+      <div className="timeline-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{
             fontFamily: "'Crimson Pro', serif",
@@ -263,26 +248,19 @@ export default function Timeline({ onAddAssignment, onEditAssignment }) {
           </div>
         </div>
       </div>
-      
+
       {/* Timeline Grid */}
-      <div style={{ flex: 1 }}>
-        <TimelineGrid 
+      <div className="timeline-scroll-area">
+        <TimelineGrid
           startIndex={startIndex}
           endIndex={endIndex}
           onAddAssignment={onAddAssignment}
           onEditAssignment={onEditAssignment}
         />
       </div>
-      
+
       {/* Pagination */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: '0.75rem',
-        marginTop: '0.75rem',
-        borderTop: '1px solid var(--border)'
-      }}>
+      <div className="timeline-footer">
         <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
           {paginationInfo}
         </div>
