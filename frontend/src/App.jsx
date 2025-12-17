@@ -103,44 +103,43 @@ function AppContent() {
   }
   
   return (
-    <div className="app-container" style={{ 
-      maxWidth: '1800px', 
-      margin: '0 auto', 
-      padding: '1rem' 
-    }}>
-      <Header 
+    <div className="app-shell">
+      <Header
         openModal={openModal}
         onExport={handleExport}
         onToggleReports={toggleReports}
         showReports={showReports}
       />
-      
-      {showReports ? (
-        <Reports 
-          people={people}
-          clients={clients}
-          projects={projects}
-          assignments={assignments}
-          onBack={toggleReports}
-        />
-      ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '280px 1fr',
-          gap: '0.75rem',
-          animation: 'fadeIn 1s ease-out 0.4s both'
-        }}>
-          <Sidebar 
-            openModal={openModal}
-            onAddAssignment={handleAddAssignment}
-          />
-          <Timeline 
-            onAddAssignment={handleAddAssignment}
-            onEditAssignment={handleEditAssignment}
-          />
-        </div>
-      )}
-      
+
+      <main className="app-body">
+        {showReports ? (
+          <div className="reports-surface">
+            <Reports
+              people={people}
+              clients={clients}
+              projects={projects}
+              assignments={assignments}
+              onBack={toggleReports}
+            />
+          </div>
+        ) : (
+          <div className="main-grid">
+            <div className="sidebar-scroll">
+              <Sidebar
+                openModal={openModal}
+                onAddAssignment={handleAddAssignment}
+              />
+            </div>
+            <div className="timeline-region">
+              <Timeline
+                onAddAssignment={handleAddAssignment}
+                onEditAssignment={handleEditAssignment}
+              />
+            </div>
+          </div>
+        )}
+      </main>
+
       {/* Modals */}
       {activeModal === 'person' && (
         <PersonModal 
