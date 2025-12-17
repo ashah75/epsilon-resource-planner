@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Protocol, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
@@ -202,16 +203,40 @@ class ValidationService:
     """Handle input validation concerns."""
 
     @staticmethod
-    def require_json(required_fields: Iterable[str]) -> Dict[str, Any]:
+    def _camel_to_snake(value: str) -> str:
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", value).lower()
+
+    @staticmethod
+    def require_json(
+        required_fields: Iterable[str], aliases: Mapping[str, Iterable[str]] | None = None
+    ) -> Dict[str, Any]:
         if not request.is_json:
             abort(400, description="Request must be JSON")
 
         data = request.get_json() or {}
-        missing = [field for field in required_fields if field not in data]
+        normalized: Dict[str, Any] = dict(data)
+
+        # Accept snake_case fallbacks for camelCase field names
+        for field in required_fields:
+            snake_fallback = ValidationService._camel_to_snake(field)
+            if field not in normalized and snake_fallback in normalized:
+                normalized[field] = normalized[snake_fallback]
+
+        # Explicit alias mapping when provided
+        if aliases:
+            for canonical, alias_keys in aliases.items():
+                if canonical in normalized:
+                    continue
+                for alias in alias_keys:
+                    if alias in normalized:
+                        normalized[canonical] = normalized[alias]
+                        break
+
+        missing = [field for field in required_fields if field not in normalized]
         if missing:
             abort(400, description=f"Missing required fields: {', '.join(missing)}")
 
-        return data
+        return normalized
 
     @staticmethod
     def convert_period_to_dates(period: int) -> Dict[str, str]:
