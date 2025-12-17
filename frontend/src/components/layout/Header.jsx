@@ -93,50 +93,63 @@ export default function Header({ openModal, onExport, onToggleReports, showRepor
         </div>
       </div>
 
-      <div className="header-actions" ref={menuRef}>
-        <div className="add-menu">
-          <button
-            className={`btn add-toggle ${showMenu ? 'open' : ''}`}
-            onClick={() => setShowMenu(!showMenu)}
-          >
-            <span className="add-symbol">＋</span>
-            Add
-            <span className="chevron">▾</span>
+      <nav className="header-actions" ref={menuRef}>
+        <div className="header-nav">
+          <div className="nav-item add-menu">
+            <button
+              className={`nav-link add-toggle ${showMenu ? 'open' : ''}`}
+              onClick={() => setShowMenu(!showMenu)}
+            >
+              <IconBadge type="assignment" />
+              <span className="nav-copy">
+                <span className="nav-title">Add</span>
+                <span className="nav-subtitle">People & work</span>
+              </span>
+              <span className="chevron">▾</span>
+            </button>
+
+            {showMenu && (
+              <div className="menu-dropdown">
+                <button onClick={() => handleAddAction('person')}>
+                  <IconBadge type="person" />
+                  <span className="menu-text">Add Team Member</span>
+                </button>
+                <button onClick={() => handleAddAction('client')}>
+                  <IconBadge type="client" />
+                  <span className="menu-text">Add Client</span>
+                </button>
+                <button onClick={() => handleAddAction('project')}>
+                  <IconBadge type="project" />
+                  <span className="menu-text">Add Project</span>
+                </button>
+                <button onClick={() => handleAddAction('assignment')}>
+                  <IconBadge type="assignment" />
+                  <span className="menu-text">Assign to Project</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button className="nav-link" onClick={onExport}>
+            <IconBadge type="export" />
+            <span className="nav-copy">
+              <span className="nav-title">Export</span>
+              <span className="nav-subtitle">Download XLSX</span>
+            </span>
           </button>
 
-          {showMenu && (
-            <div className="menu-dropdown">
-              <button onClick={() => handleAddAction('person')}>
-                <IconBadge type="person" /> Add Team Member
-              </button>
-              <button onClick={() => handleAddAction('client')}>
-                <IconBadge type="client" /> Add Client
-              </button>
-              <button onClick={() => handleAddAction('project')}>
-                <IconBadge type="project" /> Add Project
-              </button>
-              <button onClick={() => handleAddAction('assignment')}>
-                <IconBadge type="assignment" /> New Assignment
-              </button>
-              <button onClick={() => handleAddAction('upload')}>
-                <IconBadge type="upload" /> Bulk Upload
-              </button>
-            </div>
-          )}
+          <button
+            className={`nav-link ${showReports ? 'active' : ''}`}
+            onClick={onToggleReports}
+          >
+            <IconBadge type={showReports ? 'back' : 'reports'} />
+            <span className="nav-copy">
+              <span className="nav-title">{showReports ? 'Timeline' : 'Reports'}</span>
+              <span className="nav-subtitle">{showReports ? 'Return to schedule' : 'View analytics'}</span>
+            </span>
+          </button>
         </div>
-
-        <button className="btn ghost" onClick={onExport}>
-          <IconBadge type="export" /> Export
-        </button>
-
-        <button
-          className={`btn ghost ${showReports ? 'active' : ''}`}
-          onClick={onToggleReports}
-        >
-          <IconBadge type={showReports ? 'back' : 'reports'} />
-          {showReports ? 'Back to Timeline' : 'View Reports'}
-        </button>
-      </div>
+      </nav>
     </header>
   );
 }
