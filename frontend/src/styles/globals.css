@@ -304,8 +304,11 @@ body {
 
 .header-nav {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .nav-item {
@@ -321,27 +324,17 @@ body {
   color: var(--text-primary);
   padding: 0.65rem 0.85rem;
   border-radius: 12px;
-  min-width: 220px;
+  min-width: 180px;
   text-align: left;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.nav-link .nav-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  flex: 1;
-}
-
-.nav-title {
+.nav-label {
   font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.nav-subtitle {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .nav-link .chevron {

@@ -57,8 +57,13 @@ const icons = {
   )
 };
 
-function IconBadge({ type }) {
-  return <span className="icon-badge">{icons[type]}</span>;
+function IconBadge({ type, label }) {
+  return (
+    <span className="icon-badge" aria-hidden="true">
+      {icons[type]}
+      {label ? <span className="sr-only">{label}</span> : null}
+    </span>
+  );
 }
 
 export default function Header({ openModal, onExport, onToggleReports, showReports }) {
@@ -94,61 +99,61 @@ export default function Header({ openModal, onExport, onToggleReports, showRepor
       </div>
 
       <nav className="header-actions" ref={menuRef}>
-        <div className="header-nav">
-          <div className="nav-item add-menu">
+        <ul className="header-nav" role="menubar">
+          <li className="nav-item add-menu" role="none">
             <button
+              type="button"
               className={`nav-link add-toggle ${showMenu ? 'open' : ''}`}
               onClick={() => setShowMenu(!showMenu)}
+              aria-haspopup="true"
+              aria-expanded={showMenu}
             >
-              <IconBadge type="assignment" />
-              <span className="nav-copy">
-                <span className="nav-title">Add</span>
-                <span className="nav-subtitle">People & work</span>
-              </span>
-              <span className="chevron">▾</span>
+              <IconBadge type="assignment" label="Add" />
+              <span className="nav-label">Add</span>
+              <span className="chevron" aria-hidden="true">▾</span>
             </button>
 
             {showMenu && (
-              <div className="menu-dropdown">
-                <button onClick={() => handleAddAction('person')}>
-                  <IconBadge type="person" />
+              <div className="menu-dropdown" role="menu">
+                <button type="button" role="menuitem" onClick={() => handleAddAction('person')}>
+                  <IconBadge type="person" label="Add Team Member" />
                   <span className="menu-text">Add Team Member</span>
                 </button>
-                <button onClick={() => handleAddAction('client')}>
-                  <IconBadge type="client" />
+                <button type="button" role="menuitem" onClick={() => handleAddAction('client')}>
+                  <IconBadge type="client" label="Add Client" />
                   <span className="menu-text">Add Client</span>
                 </button>
-                <button onClick={() => handleAddAction('project')}>
-                  <IconBadge type="project" />
+                <button type="button" role="menuitem" onClick={() => handleAddAction('project')}>
+                  <IconBadge type="project" label="Add Project" />
                   <span className="menu-text">Add Project</span>
                 </button>
-                <button onClick={() => handleAddAction('assignment')}>
-                  <IconBadge type="assignment" />
+                <button type="button" role="menuitem" onClick={() => handleAddAction('assignment')}>
+                  <IconBadge type="assignment" label="Assign to Project" />
                   <span className="menu-text">Assign to Project</span>
                 </button>
               </div>
             )}
-          </div>
+          </li>
 
-          <button className="nav-link" onClick={onExport}>
-            <IconBadge type="export" />
-            <span className="nav-copy">
-              <span className="nav-title">Export</span>
-              <span className="nav-subtitle">Download XLSX</span>
-            </span>
-          </button>
+          <li className="nav-item" role="none">
+            <button type="button" className="nav-link" onClick={onExport} role="menuitem">
+              <IconBadge type="export" label="Export" />
+              <span className="nav-label">Export</span>
+            </button>
+          </li>
 
-          <button
-            className={`nav-link ${showReports ? 'active' : ''}`}
-            onClick={onToggleReports}
-          >
-            <IconBadge type={showReports ? 'back' : 'reports'} />
-            <span className="nav-copy">
-              <span className="nav-title">{showReports ? 'Timeline' : 'Reports'}</span>
-              <span className="nav-subtitle">{showReports ? 'Return to schedule' : 'View analytics'}</span>
-            </span>
-          </button>
-        </div>
+          <li className="nav-item" role="none">
+            <button
+              type="button"
+              className={`nav-link ${showReports ? 'active' : ''}`}
+              onClick={onToggleReports}
+              role="menuitem"
+            >
+              <IconBadge type={showReports ? 'back' : 'reports'} label={showReports ? 'Back to timeline' : 'Reports'} />
+              <span className="nav-label">{showReports ? 'Timeline' : 'Reports'}</span>
+            </button>
+          </li>
+        </ul>
       </nav>
     </header>
   );
