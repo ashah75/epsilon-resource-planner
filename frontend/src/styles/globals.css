@@ -26,6 +26,54 @@ body {
   overflow-x: hidden;
 }
 
+.app-shell {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 1rem;
+  height: calc(100vh - 180px);
+  min-height: 520px;
+  animation: fadeIn 1s ease-out 0.4s both;
+}
+
+.sidebar-scroll {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  min-height: 0;
+}
+
+.timeline-region {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.reports-surface {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -127,6 +175,146 @@ body {
   border-color: var(--accent-primary);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(180deg, rgba(10, 14, 20, 0.95) 0%, rgba(10, 14, 20, 0.85) 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.brand-mark img {
+  height: 48px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+}
+
+.brand-copy h1 {
+  font-family: 'Crimson Pro', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-copy p {
+  color: var(--text-secondary);
+  margin: 0.15rem 0 0;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.add-menu {
+  position: relative;
+}
+
+.add-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  color: #0f172a;
+  border: none;
+  font-weight: 700;
+  padding: 0.65rem 0.95rem;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(249, 115, 22, 0.35);
+}
+
+.add-toggle .add-symbol {
+  font-size: 1.2rem;
+}
+
+.add-toggle .chevron {
+  font-size: 0.9rem;
+  color: #7c2d12;
+}
+
+.add-toggle.open {
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.35);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.35rem;
+  min-width: 210px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: fadeIn 0.15s ease-out;
+  z-index: 12;
+}
+
+.menu-dropdown button {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 8px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.menu-dropdown button:hover {
+  background: rgba(245, 158, 11, 0.1);
+  transform: translateX(3px);
+}
+
+.btn.ghost {
+  background: rgba(31, 41, 55, 0.75);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.btn.ghost.active {
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 /* Heat Map Colors */
