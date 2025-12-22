@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import * as XLSX from 'xlsx';
 import { parseCSV } from '../../utils/export';
 
 /**
@@ -19,6 +20,7 @@ export default function UploadModal({ isOpen, onClose }) {
   const [uploadType, setUploadType] = useState('people');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
+  const [parsedRows, setParsedRows] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
@@ -29,6 +31,7 @@ export default function UploadModal({ isOpen, onClose }) {
       setUploadType('people');
       setFile(null);
       setPreview([]);
+      setParsedRows([]);
       setErrors({});
       setUploadResult(null);
     }
@@ -38,8 +41,23 @@ export default function UploadModal({ isOpen, onClose }) {
     setUploadType(e.target.value);
     setFile(null);
     setPreview([]);
+    setParsedRows([]);
     setErrors({});
     setUploadResult(null);
+  };
+
+  const parseUploadFile = async (selectedFile) => {
+    if (selectedFile.name.endsWith('.csv')) {
+      const text = await selectedFile.text();
+      return parseCSV(text);
+    }
+
+    const buffer = await selectedFile.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheet = workbook.SheetNames[0];
+    if (!firstSheet) return [];
+
+    return XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '' });
   };
 
   const handleFileChange = async (e) => {
@@ -47,8 +65,8 @@ export default function UploadModal({ isOpen, onClose }) {
     if (!selectedFile) return;
 
     // Validate file type
-    if (!selectedFile.name.endsWith('.csv')) {
-      setErrors({ file: 'Please select a CSV file' });
+    if (!/\.(csv|xlsx|xls)$/i.test(selectedFile.name)) {
+      setErrors({ file: 'Please select a CSV or Excel file' });
       return;
     }
 
@@ -58,12 +76,12 @@ export default function UploadModal({ isOpen, onClose }) {
 
     // Parse and preview the file
     try {
-      const text = await selectedFile.text();
-      const parsed = parseCSV(text);
+      const parsed = await parseUploadFile(selectedFile);
       
       if (parsed.length === 0) {
-        setErrors({ file: 'CSV file is empty' });
+        setErrors({ file: 'File is empty' });
         setPreview([]);
+        setParsedRows([]);
         return;
       }
 
@@ -77,14 +95,17 @@ export default function UploadModal({ isOpen, onClose }) {
           file: `Missing required columns: ${missingColumns.join(', ')}`
         });
         setPreview([]);
+        setParsedRows([]);
         return;
       }
 
       // Show preview (first 5 rows)
       setPreview(parsed.slice(0, 5));
+      setParsedRows(parsed);
     } catch (error) {
-      setErrors({ file: 'Failed to parse CSV file' });
+      setErrors({ file: 'Failed to parse file' });
       setPreview([]);
+      setParsedRows([]);
     }
   };
 
@@ -139,7 +160,7 @@ export default function UploadModal({ isOpen, onClose }) {
       return;
     }
 
-    if (preview.length === 0) {
+    if (parsedRows.length === 0) {
       setErrors({ file: 'No valid data to upload' });
       return;
     }
@@ -148,22 +169,19 @@ export default function UploadModal({ isOpen, onClose }) {
     setErrors({});
 
     try {
-      const text = await file.text();
-      const data = parseCSV(text);
-      
       let result;
       switch (uploadType) {
         case 'people':
-          result = await bulkUploadPeople(data);
+          result = await bulkUploadPeople(parsedRows);
           break;
         case 'clients':
-          result = await bulkUploadClients(data);
+          result = await bulkUploadClients(parsedRows);
           break;
         case 'projects':
-          result = await bulkUploadProjects(data);
+          result = await bulkUploadProjects(parsedRows);
           break;
         case 'assignments':
-          result = await bulkUploadAssignments(data);
+          result = await bulkUploadAssignments(parsedRows);
           break;
         default:
           throw new Error('Invalid upload type');
@@ -171,7 +189,7 @@ export default function UploadModal({ isOpen, onClose }) {
 
       setUploadResult({
         success: true,
-        message: `Successfully uploaded ${data.length} ${uploadType}`
+        message: `Successfully uploaded ${parsedRows.length} ${uploadType}`
       });
 
       // Close modal after 2 seconds
@@ -199,7 +217,7 @@ export default function UploadModal({ isOpen, onClose }) {
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal modal-large">
         <div className="modal-header">
-          <h2>Bulk Upload CSV</h2>
+          <h2>Bulk Upload</h2>
           <button className="close-button" onClick={onClose} aria-label="Close">
             ×
           </button>
@@ -235,9 +253,9 @@ export default function UploadModal({ isOpen, onClose }) {
             </div>
 
             <div className="upload-instructions">
-              <h3>CSV Format Instructions</h3>
+              <h3>CSV or Excel Format Instructions</h3>
               <p>
-                Your CSV file must include the following columns:
+                Your file must include the following columns:
               </p>
               <ul>
                 {getRequiredColumns(uploadType).map(col => (
@@ -255,12 +273,12 @@ export default function UploadModal({ isOpen, onClose }) {
             
             <div className="form-group">
               <label htmlFor="csvFile">
-                Select CSV File <span className="required">*</span>
+                Select CSV or Excel File <span className="required">*</span>
               </label>
               <input
                 type="file"
                 id="csvFile"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileChange}
                 className={errors.file ? 'error' : ''}
                 disabled={isSubmitting}

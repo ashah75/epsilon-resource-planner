@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
  */
 export default function Reports({ people, clients, projects, assignments, onBack }) {
   const [currentPeriodOffset, setCurrentPeriodOffset] = useState(0);
-  const [viewType, setViewType] = useState('team'); // 'team', 'project', 'client'
+  const [viewType, setViewType] = useState('team'); // 'team', 'project'
 
   // Generate 6 months for report
   const months = useMemo(() => {
@@ -32,9 +32,9 @@ export default function Reports({ people, clients, projects, assignments, onBack
       const personData = { person };
       months.forEach((month, idx) => {
         const monthAssignments = assignments.filter(a => {
-          if (a.person_id !== person.id) return false;
-          const assignStart = parseDateString(a.start_date);
-          const assignEnd = parseDateString(a.end_date);
+          if (a.personId !== person.id) return false;
+          const assignStart = parseDateString(a.startDate);
+          const assignEnd = parseDateString(a.endDate);
           return assignStart <= month.endDate && assignEnd >= month.startDate;
         });
         const total = monthAssignments.reduce((sum, a) => sum + a.percentage, 0);
@@ -47,10 +47,10 @@ export default function Reports({ people, clients, projects, assignments, onBack
   // Calculate project distribution
   const projectDistribution = useMemo(() => {
     return projects.map(project => {
-      const projectAssignments = assignments.filter(a => a.project_id === project.id);
-      const uniquePeople = [...new Set(projectAssignments.map(a => a.person_id))];
+      const projectAssignments = assignments.filter(a => a.projectId === project.id);
+      const uniquePeople = [...new Set(projectAssignments.map(a => a.personId))];
       const totalAllocation = projectAssignments.reduce((sum, a) => sum + a.percentage, 0);
-      const client = clients.find(c => c.id === project.client_id);
+      const client = clients.find(c => c.id === project.clientId);
       
       return {
         project,
@@ -61,27 +61,6 @@ export default function Reports({ people, clients, projects, assignments, onBack
       };
     }).sort((a, b) => b.totalAllocation - a.totalAllocation);
   }, [projects, assignments, clients]);
-
-  // Calculate client engagement
-  const clientEngagement = useMemo(() => {
-    return clients.map(client => {
-      const clientProjects = projects.filter(p => p.client_id === client.id);
-      const clientAssignments = assignments.filter(a => {
-        const project = projects.find(p => p.id === a.project_id);
-        return project && project.client_id === client.id;
-      });
-      const uniquePeople = [...new Set(clientAssignments.map(a => a.person_id))];
-      const totalAllocation = clientAssignments.reduce((sum, a) => sum + a.percentage, 0);
-      
-      return {
-        client,
-        projectCount: clientProjects.length,
-        peopleCount: uniquePeople.length,
-        totalAllocation,
-        color: getClientColor(client.id)
-      };
-    }).sort((a, b) => b.totalAllocation - a.totalAllocation);
-  }, [clients, projects, assignments]);
 
   // Export to XLSX
   const handleExport = () => {
@@ -112,19 +91,6 @@ export default function Reports({ people, clients, projects, assignments, onBack
     ];
     const projectSheet = XLSX.utils.aoa_to_sheet(projectData);
     XLSX.utils.book_append_sheet(wb, projectSheet, 'Project Distribution');
-
-    // Client Engagement Sheet
-    const clientData = [
-      ['Client', 'Projects', 'People', 'Total Allocation'],
-      ...clientEngagement.map(row => [
-        row.client.name,
-        row.projectCount,
-        row.peopleCount,
-        `${row.totalAllocation}%`
-      ])
-    ];
-    const clientSheet = XLSX.utils.aoa_to_sheet(clientData);
-    XLSX.utils.book_append_sheet(wb, clientSheet, 'Client Engagement');
 
     // Write file
     XLSX.writeFile(wb, 'resource-allocation-report.xlsx');
@@ -227,13 +193,6 @@ export default function Reports({ people, clients, projects, assignments, onBack
         >
           📊 Project Distribution
         </button>
-        <button
-          className={`btn ${viewType === 'client' ? 'btn-active' : ''}`}
-          onClick={() => setViewType('client')}
-          style={{ padding: '0.5rem 1rem' }}
-        >
-          🏢 Client Engagement
-        </button>
       </div>
 
       {/* Team Allocation View */}
@@ -320,46 +279,6 @@ export default function Reports({ people, clients, projects, assignments, onBack
         </div>
       )}
 
-      {/* Client Engagement View */}
-      {viewType === 'client' && (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="report-table">
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Projects</th>
-                <th>People</th>
-                <th>Total Allocation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientEngagement.map((row, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          background: row.color
-                        }}
-                      />
-                      <span style={{ fontWeight: 600 }}>{row.client.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.projectCount}</td>
-                  <td style={{ textAlign: 'center' }}>{row.peopleCount}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                    {row.totalAllocation}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
