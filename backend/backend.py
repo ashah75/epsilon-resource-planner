@@ -472,6 +472,76 @@ class ResourcePlannerAPI:
 
         self._register_routes()
 
+    def _normalize_assignment_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not payload:
+            abort(400, description="Assignment payload is required")
+
+        def _clean_name(value: Any) -> str | None:
+            if value is None:
+                return None
+            if isinstance(value, str):
+                trimmed = value.strip()
+                return trimmed if trimmed else None
+            return str(value)
+
+        person_id = payload.get("personId") or payload.get("person_id")
+        if isinstance(person_id, str) and person_id.strip():
+            try:
+                person_id = int(person_id)
+            except ValueError:
+                abort(400, description="Assignment personId must be a number")
+        if person_id is None:
+            person_name = _clean_name(payload.get("personName") or payload.get("person_name"))
+            if not person_name:
+                abort(400, description="Assignment requires personId or personName")
+            person_id = self.people_repo.get_id_by_name(person_name)
+            if person_id is None:
+                abort(400, description=f"Person not found: {person_name}")
+
+        project_id = payload.get("projectId") or payload.get("project_id")
+        if isinstance(project_id, str) and project_id.strip():
+            try:
+                project_id = int(project_id)
+            except ValueError:
+                abort(400, description="Assignment projectId must be a number")
+        if project_id is None:
+            project_name = _clean_name(payload.get("projectName") or payload.get("project_name"))
+            client_name = _clean_name(payload.get("clientName") or payload.get("client_name"))
+            if not project_name or not client_name:
+                abort(400, description="Assignment requires projectId or projectName with clientName")
+            client_id = self.clients_repo.get_id_by_name(client_name)
+            if client_id is None:
+                abort(400, description=f"Client not found: {client_name}")
+            project_id = self.projects_repo.get_id_by_name_and_client(project_name, client_id)
+            if project_id is None:
+                abort(400, description=f"Project not found: {project_name} (client: {client_name})")
+
+        start_date = payload.get("startDate") or payload.get("start_date")
+        end_date = payload.get("endDate") or payload.get("end_date")
+        if not start_date or not end_date:
+            if "period" in payload:
+                dates = ValidationService.convert_period_to_dates(int(payload["period"]))
+                start_date = dates["start"]
+                end_date = dates["end"]
+            else:
+                abort(400, description="Either startDate/endDate or period is required")
+
+        percentage = payload.get("percentage", 100)
+        if percentage in ("", None):
+            percentage = 100
+        try:
+            percentage = int(percentage)
+        except (TypeError, ValueError):
+            abort(400, description="Assignment percentage must be a number")
+
+        return {
+            "personId": person_id,
+            "projectId": project_id,
+            "startDate": start_date,
+            "endDate": end_date,
+            "percentage": percentage,
+        }
+
     # ---------------------------- Routes ---------------------------------
     def _register_routes(self) -> None:
         app = self.app
@@ -549,31 +619,26 @@ class ResourcePlannerAPI:
 
         @app.route("/api/assignments", methods=["POST"])
         def add_assignment():
-            data = ValidationService.require_json({"personId", "projectId"})
-            percentage = int(data.get("percentage", 100))
-
-            if "startDate" in data and "endDate" in data:
-                start_date = data["startDate"]
-                end_date = data["endDate"]
-            elif "period" in data:
-                dates = ValidationService.convert_period_to_dates(int(data["period"]))
-                start_date = dates["start"]
-                end_date = dates["end"]
-            else:
-                abort(400, description="Either startDate/endDate or period is required")
-
+            if not request.is_json:
+                abort(400, description="Request must be JSON")
+            data = request.get_json() or {}
+            normalized = self._normalize_assignment_payload(data)
             assignment_id = self.assignments_repo.create(
-                data["personId"], data["projectId"], start_date, end_date, percentage
+                normalized["personId"],
+                normalized["projectId"],
+                normalized["startDate"],
+                normalized["endDate"],
+                normalized["percentage"],
             )
             return (
                 jsonify(
                     {
                         "id": assignment_id,
-                        "personId": data["personId"],
-                        "projectId": data["projectId"],
-                        "startDate": start_date,
-                        "endDate": end_date,
-                        "percentage": percentage,
+                        "personId": normalized["personId"],
+                        "projectId": normalized["projectId"],
+                        "startDate": normalized["startDate"],
+                        "endDate": normalized["endDate"],
+                        "percentage": normalized["percentage"],
                     }
                 ),
                 201,
@@ -642,8 +707,27 @@ class ResourcePlannerAPI:
             data = ValidationService.require_json({"assignments"})
             try:
                 logger.info("Bulk upload assignments request: %s rows", len(data["assignments"]))
-                added = self.bulk_service.bulk_assignments(data["assignments"])
-            except ValueError as exc:
+                added = []
+                for row in data["assignments"]:
+                    normalized = self._normalize_assignment_payload(row)
+                    assignment_id = self.assignments_repo.create(
+                        normalized["personId"],
+                        normalized["projectId"],
+                        normalized["startDate"],
+                        normalized["endDate"],
+                        normalized["percentage"],
+                    )
+                    added.append(
+                        {
+                            "id": assignment_id,
+                            "personId": normalized["personId"],
+                            "projectId": normalized["projectId"],
+                            "startDate": normalized["startDate"],
+                            "endDate": normalized["endDate"],
+                            "percentage": normalized["percentage"],
+                        }
+                    )
+            except Exception as exc:
                 logger.warning("Bulk upload assignments failed: %s", exc)
                 abort(400, description=str(exc))
             return jsonify({"added": added}), 201
