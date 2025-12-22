@@ -126,7 +126,7 @@ class PeopleRepository(BaseRepository):
         self._execute("UPDATE people SET name = ?, role = ? WHERE id = ?", (name, role, person_id))
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM people WHERE name = ?", (name,))
+        row = self._fetchone("SELECT id FROM people WHERE LOWER(name) = LOWER(?)", (name,))
         return row["id"] if row else None
 
 
@@ -151,7 +151,7 @@ class ClientsRepository(BaseRepository):
         self._execute("UPDATE clients SET name = ? WHERE id = ?", (name, client_id))
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM clients WHERE name = ?", (name,))
+        row = self._fetchone("SELECT id FROM clients WHERE LOWER(name) = LOWER(?)", (name,))
         return row["id"] if row else None
 
 
@@ -177,12 +177,12 @@ class ProjectsRepository(BaseRepository):
         )
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM projects WHERE name = ?", (name,))
+        row = self._fetchone("SELECT id FROM projects WHERE LOWER(name) = LOWER(?)", (name,))
         return row["id"] if row else None
 
     def get_id_by_name_and_client(self, name: str, client_id: int) -> int | None:
         row = self._fetchone(
-            "SELECT id FROM projects WHERE name = ? AND client_id = ?",
+            "SELECT id FROM projects WHERE LOWER(name) = LOWER(?) AND client_id = ?",
             (name, client_id),
         )
         return row["id"] if row else None
@@ -347,7 +347,10 @@ class BulkUploadService:
 
             person_id = assignment.get("personId") or assignment.get("person_id")
             if isinstance(person_id, str) and person_id.strip():
-                person_id = int(person_id)
+                try:
+                    person_id = int(person_id)
+                except ValueError:
+                    raise ValueError("Assignment personId must be a number") from None
             if person_id is None:
                 person_name = _clean_name(assignment.get("personName") or assignment.get("person_name"))
                 if not person_name:
@@ -358,7 +361,10 @@ class BulkUploadService:
 
             project_id = assignment.get("projectId") or assignment.get("project_id")
             if isinstance(project_id, str) and project_id.strip():
-                project_id = int(project_id)
+                try:
+                    project_id = int(project_id)
+                except ValueError:
+                    raise ValueError("Assignment projectId must be a number") from None
             if project_id is None:
                 project_name = _clean_name(assignment.get("projectName") or assignment.get("project_name"))
                 client_name = _clean_name(assignment.get("clientName") or assignment.get("client_name"))
