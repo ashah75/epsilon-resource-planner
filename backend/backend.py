@@ -337,7 +337,7 @@ class BulkUploadService:
             if not start_date or not end_date:
                 raise ValueError("Assignment requires startDate/start_date and endDate/end_date")
 
-            person_id = assignment.get("personId")
+            person_id = assignment.get("personId") or assignment.get("person_id")
             if person_id is None:
                 person_name = assignment.get("personName") or assignment.get("person_name")
                 if not person_name:
@@ -346,7 +346,7 @@ class BulkUploadService:
                 if person_id is None:
                     raise ValueError(f"Person not found: {person_name}")
 
-            project_id = assignment.get("projectId")
+            project_id = assignment.get("projectId") or assignment.get("project_id")
             if project_id is None:
                 project_name = assignment.get("projectName") or assignment.get("project_name")
                 client_name = assignment.get("clientName") or assignment.get("client_name")
@@ -360,6 +360,10 @@ class BulkUploadService:
                     raise ValueError(f"Project not found: {project_name} (client: {client_name})")
 
             percentage = assignment.get("percentage", 100)
+            try:
+                percentage = int(percentage)
+            except (TypeError, ValueError):
+                raise ValueError("Assignment percentage must be a number") from None
             new_id = self._assignments_repo.create(
                 person_id,
                 project_id,
