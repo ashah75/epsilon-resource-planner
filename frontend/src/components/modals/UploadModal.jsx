@@ -118,7 +118,7 @@ export default function UploadModal({ isOpen, onClose }) {
       case 'projects':
         return ['name', 'client_name'];
       case 'assignments':
-        return ['person_id', 'project_id', 'start_date', 'end_date', 'percentage'];
+        return ['person_name', 'project_name', 'start_date', 'end_date', 'percentage'];
       default:
         return [];
     }
@@ -133,7 +133,7 @@ export default function UploadModal({ isOpen, onClose }) {
       case 'projects':
         return 'name,client_name\nWebsite Redesign,Acme Corp\nMobile App,Tech Inc';
       case 'assignments':
-        return 'person_id,project_id,start_date,end_date,percentage\n1,1,2024-01-01,2024-03-31,50\n2,2,2024-02-01,2024-04-30,75';
+        return 'person_name,project_name,start_date,end_date,percentage\nJohn Doe,Website Redesign,2024-01-01,2024-03-31,50\nJane Smith,Mobile App,2024-02-01,2024-04-30,75';
       default:
         return '';
     }

@@ -125,6 +125,10 @@ class PeopleRepository(BaseRepository):
     def update(self, person_id: int, name: str, role: str) -> None:
         self._execute("UPDATE people SET name = ?, role = ? WHERE id = ?", (name, role, person_id))
 
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone("SELECT id FROM people WHERE name = ?", (name,))
+        return row["id"] if row else None
+
 
 class ClientsRepository(BaseRepository):
     def list(self) -> List[Dict[str, Any]]:
@@ -171,6 +175,10 @@ class ProjectsRepository(BaseRepository):
             "UPDATE projects SET name = ?, client_id = ? WHERE id = ?",
             (name, client_id, project_id),
         )
+
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone("SELECT id FROM projects WHERE name = ?", (name,))
+        return row["id"] if row else None
 
 
 class AssignmentsRepository(BaseRepository):
@@ -317,10 +325,28 @@ class BulkUploadService:
     def bulk_assignments(self, assignments_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for assignment in assignments_payload:
+            person_id = assignment.get("personId")
+            if person_id is None:
+                person_name = assignment.get("personName") or assignment.get("person_name")
+                if not person_name:
+                    raise ValueError("Assignment requires personId or personName")
+                person_id = self._people_repo.get_id_by_name(person_name)
+                if person_id is None:
+                    raise ValueError(f"Person not found: {person_name}")
+
+            project_id = assignment.get("projectId")
+            if project_id is None:
+                project_name = assignment.get("projectName") or assignment.get("project_name")
+                if not project_name:
+                    raise ValueError("Assignment requires projectId or projectName")
+                project_id = self._projects_repo.get_id_by_name(project_name)
+                if project_id is None:
+                    raise ValueError(f"Project not found: {project_name}")
+
             percentage = assignment.get("percentage", 100)
             new_id = self._assignments_repo.create(
-                assignment["personId"],
-                assignment["projectId"],
+                person_id,
+                project_id,
                 assignment["startDate"],
                 assignment["endDate"],
                 percentage,
@@ -328,8 +354,8 @@ class BulkUploadService:
             added.append(
                 {
                     "id": new_id,
-                    "personId": assignment["personId"],
-                    "projectId": assignment["projectId"],
+                    "personId": person_id,
+                    "projectId": project_id,
                     "startDate": assignment["startDate"],
                     "endDate": assignment["endDate"],
                     "percentage": percentage,
