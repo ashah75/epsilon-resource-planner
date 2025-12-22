@@ -1176,6 +1176,17 @@ body {
   border-top-color: var(--bg-primary);
 }
 
+.grid-row:first-of-type .assignment-tooltip {
+  bottom: auto;
+  top: calc(100% + 0.5rem);
+}
+
+.grid-row:first-of-type .assignment-tooltip::after {
+  top: -12px;
+  border-top-color: transparent;
+  border-bottom-color: var(--bg-primary);
+}
+
 .tooltip-header {
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
