@@ -332,14 +332,24 @@ class BulkUploadService:
     def bulk_assignments(self, assignments_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for assignment in assignments_payload:
+            def _clean_name(value: Any) -> str | None:
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    trimmed = value.strip()
+                    return trimmed if trimmed else None
+                return str(value)
+
             start_date = assignment.get("startDate") or assignment.get("start_date")
             end_date = assignment.get("endDate") or assignment.get("end_date")
             if not start_date or not end_date:
                 raise ValueError("Assignment requires startDate/start_date and endDate/end_date")
 
             person_id = assignment.get("personId") or assignment.get("person_id")
+            if isinstance(person_id, str) and person_id.strip():
+                person_id = int(person_id)
             if person_id is None:
-                person_name = assignment.get("personName") or assignment.get("person_name")
+                person_name = _clean_name(assignment.get("personName") or assignment.get("person_name"))
                 if not person_name:
                     raise ValueError("Assignment requires personId or personName")
                 person_id = self._people_repo.get_id_by_name(person_name)
@@ -347,9 +357,11 @@ class BulkUploadService:
                     raise ValueError(f"Person not found: {person_name}")
 
             project_id = assignment.get("projectId") or assignment.get("project_id")
+            if isinstance(project_id, str) and project_id.strip():
+                project_id = int(project_id)
             if project_id is None:
-                project_name = assignment.get("projectName") or assignment.get("project_name")
-                client_name = assignment.get("clientName") or assignment.get("client_name")
+                project_name = _clean_name(assignment.get("projectName") or assignment.get("project_name"))
+                client_name = _clean_name(assignment.get("clientName") or assignment.get("client_name"))
                 if not project_name or not client_name:
                     raise ValueError("Assignment requires projectId or projectName with clientName")
                 client_id = self._clients_repo.get_id_by_name(client_name)
@@ -360,6 +372,8 @@ class BulkUploadService:
                     raise ValueError(f"Project not found: {project_name} (client: {client_name})")
 
             percentage = assignment.get("percentage", 100)
+            if percentage in ("", None):
+                percentage = 100
             try:
                 percentage = int(percentage)
             except (TypeError, ValueError):
@@ -621,8 +635,10 @@ class ResourcePlannerAPI:
         def bulk_upload_assignments():
             data = ValidationService.require_json({"assignments"})
             try:
+                logger.info("Bulk upload assignments request: %s rows", len(data["assignments"]))
                 added = self.bulk_service.bulk_assignments(data["assignments"])
             except ValueError as exc:
+                logger.warning("Bulk upload assignments failed: %s", exc)
                 abort(400, description=str(exc))
             return jsonify({"added": added}), 201
 
