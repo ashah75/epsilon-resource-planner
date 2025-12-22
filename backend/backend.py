@@ -146,6 +146,10 @@ class ClientsRepository(BaseRepository):
     def update(self, client_id: int, name: str) -> None:
         self._execute("UPDATE clients SET name = ? WHERE id = ?", (name, client_id))
 
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone("SELECT id FROM clients WHERE name = ?", (name,))
+        return row["id"] if row else None
+
 
 class ProjectsRepository(BaseRepository):
     def list(self) -> List[Dict[str, Any]]:
@@ -297,8 +301,17 @@ class BulkUploadService:
     def bulk_projects(self, projects_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for project in projects_payload:
-            new_id = self._projects_repo.create(project["name"], project["clientId"])
-            added.append({"id": new_id, "name": project["name"], "clientId": project["clientId"]})
+            client_id = project.get("clientId")
+            if client_id is None:
+                client_name = project.get("clientName") or project.get("client_name")
+                if not client_name:
+                    raise ValueError("Project requires clientId or clientName")
+                client_id = self._clients_repo.get_id_by_name(client_name)
+                if client_id is None:
+                    raise ValueError(f"Client not found: {client_name}")
+
+            new_id = self._projects_repo.create(project["name"], client_id)
+            added.append({"id": new_id, "name": project["name"], "clientId": client_id})
         return added
 
     def bulk_assignments(self, assignments_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -552,7 +565,10 @@ class ResourcePlannerAPI:
         @app.route("/api/bulk-upload/projects", methods=["POST"])
         def bulk_upload_projects():
             data = ValidationService.require_json({"projects"})
-            added = self.bulk_service.bulk_projects(data["projects"])
+            try:
+                added = self.bulk_service.bulk_projects(data["projects"])
+            except ValueError as exc:
+                abort(400, description=str(exc))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/assignments", methods=["POST"])
