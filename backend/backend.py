@@ -10,6 +10,7 @@ supported by SQLAlchemy-compatible URLs.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import re
@@ -97,7 +98,7 @@ class BaseRepository:
         self._connection_provider = connection_provider
 
     def _execute(self, query: str, parameters: Sequence[Any] = ()):
-        with self._connection_provider.get_connection() as conn:
+        with contextlib.closing(self._connection_provider.get_connection()) as conn:
             return conn.execute(query, parameters)
 
     def _fetchall(self, query: str, parameters: Sequence[Any] = ()) -> List[Dict[str, Any]]:
@@ -118,7 +119,7 @@ class PeopleRepository(BaseRepository):
         return cursor.lastrowid
 
     def delete(self, person_id: int) -> None:
-        with self._connection_provider.get_connection() as conn:
+        with contextlib.closing(self._connection_provider.get_connection()) as conn:
             conn.execute("DELETE FROM assignments WHERE person_id = ?", (person_id,))
             conn.execute("DELETE FROM people WHERE id = ?", (person_id,))
 
@@ -139,7 +140,7 @@ class ClientsRepository(BaseRepository):
         return cursor.lastrowid
 
     def delete(self, client_id: int) -> None:
-        with self._connection_provider.get_connection() as conn:
+        with contextlib.closing(self._connection_provider.get_connection()) as conn:
             projects = conn.execute("SELECT id FROM projects WHERE client_id = ?", (client_id,)).fetchall()
             project_ids = [project["id"] for project in projects]
             for project_id in project_ids:
@@ -166,7 +167,7 @@ class ProjectsRepository(BaseRepository):
         return cursor.lastrowid
 
     def delete(self, project_id: int) -> None:
-        with self._connection_provider.get_connection() as conn:
+        with contextlib.closing(self._connection_provider.get_connection()) as conn:
             conn.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
             conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
 
@@ -391,7 +392,7 @@ class DatabaseInitializer:
         self._connection_provider = connection_provider
 
     def initialize(self) -> None:
-        with self._connection_provider.get_connection() as conn:
+        with contextlib.closing(self._connection_provider.get_connection()) as conn:
             conn.executescript(
                 """
                 PRAGMA foreign_keys = ON;
@@ -628,7 +629,7 @@ class ResourcePlannerAPI:
 
         @app.route("/api/clear-all", methods=["POST"])
         def clear_all():
-            with self.connection_provider.get_connection() as conn:
+            with contextlib.closing(self.connection_provider.get_connection()) as conn:
                 conn.execute("DELETE FROM assignments")
                 conn.execute("DELETE FROM projects")
                 conn.execute("DELETE FROM clients")
