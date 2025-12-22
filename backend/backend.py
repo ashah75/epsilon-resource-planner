@@ -209,6 +209,18 @@ class AssignmentsRepository(BaseRepository):
         )
         return cursor.lastrowid
 
+    def find_existing(
+        self, person_id: int, project_id: int, start_date: str, end_date: str
+    ) -> int | None:
+        row = self._fetchone(
+            """
+            SELECT id FROM assignments
+            WHERE person_id = ? AND project_id = ? AND start_date = ? AND end_date = ?
+            """,
+            (person_id, project_id, start_date, end_date),
+        )
+        return row["id"] if row else None
+
     def delete(self, assignment_id: int) -> None:
         self._execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
@@ -710,13 +722,29 @@ class ResourcePlannerAPI:
                 added = []
                 for row in data["assignments"]:
                     normalized = self._normalize_assignment_payload(row)
-                    assignment_id = self.assignments_repo.create(
+                    assignment_id = self.assignments_repo.find_existing(
                         normalized["personId"],
                         normalized["projectId"],
                         normalized["startDate"],
                         normalized["endDate"],
-                        normalized["percentage"],
                     )
+                    if assignment_id:
+                        self.assignments_repo.update(
+                            assignment_id,
+                            normalized["personId"],
+                            normalized["projectId"],
+                            normalized["startDate"],
+                            normalized["endDate"],
+                            normalized["percentage"],
+                        )
+                    else:
+                        assignment_id = self.assignments_repo.create(
+                            normalized["personId"],
+                            normalized["projectId"],
+                            normalized["startDate"],
+                            normalized["endDate"],
+                            normalized["percentage"],
+                        )
                     added.append(
                         {
                             "id": assignment_id,
