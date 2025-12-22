@@ -895,7 +895,7 @@ body {
   gap: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--bg-secondary);
 }
 
@@ -980,6 +980,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .timeline-cell:last-child {
@@ -1005,6 +1006,7 @@ body {
   height: 100%;
   width: 100%;
   position: relative;
+  overflow: visible;
 }
 
 .empty-cell {
