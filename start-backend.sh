@@ -9,4 +9,7 @@ echo "Press Ctrl+C to stop the server"
 echo ""
 
 cd "$(dirname "$0")"
+echo "🧪 Running backend unit tests..."
+python3 -m unittest discover -s backend/tests -v
+echo ""
 python3 backend.py

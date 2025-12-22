@@ -85,6 +85,9 @@ echo "[3/4] Starting backend server..."
 (
   cd "$SCRIPT_DIR/backend"
   echo "Backend starting..."
+  echo "Running backend unit tests..."
+  "$PYTHON" -m unittest discover -s tests -v
+  echo "Backend tests passed."
   "$PYTHON" backend.py
 ) &
 
