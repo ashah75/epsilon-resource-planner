@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
-from sqlalchemy import create_engine, text
+from sqlalchemy import Integer, bindparam, create_engine, text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -97,17 +97,29 @@ class BaseRepository:
         row = result.mappings().first()
         return dict(row) if row else None
 
+    def _insert_returning_id(self, query: str, parameters: Mapping[str, Any]) -> int:
+        with self._connection_provider.get_connection() as conn:
+            if conn.dialect.name == "oracle":
+                oracle_query = f"{query} RETURNING id INTO :id"
+                statement = text(oracle_query).bindparams(
+                    bindparam("id", None, type_=Integer, isoutparam=True)
+                )
+                result = conn.execute(statement, dict(parameters))
+                return int(result.out_parameters["id"])
+            statement = text(f"{query} RETURNING id")
+            result = conn.execute(statement, dict(parameters))
+            return int(result.scalar_one())
+
 
 class PeopleRepository(BaseRepository):
     def list(self) -> List[Dict[str, Any]]:
         return self._fetchall("SELECT * FROM people")
 
     def create(self, name: str, role: str) -> int:
-        result = self._execute(
-            "INSERT INTO people (name, role) VALUES (:name, :role) RETURNING id",
+        return self._insert_returning_id(
+            "INSERT INTO people (name, role) VALUES (:name, :role)",
             {"name": name, "role": role},
         )
-        return int(result.scalar_one())
 
     def delete(self, person_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -135,10 +147,9 @@ class ClientsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM clients")
 
     def create(self, name: str) -> int:
-        result = self._execute(
-            "INSERT INTO clients (name) VALUES (:name) RETURNING id", {"name": name}
+        return self._insert_returning_id(
+            "INSERT INTO clients (name) VALUES (:name)", {"name": name}
         )
-        return int(result.scalar_one())
 
     def delete(self, client_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -176,11 +187,10 @@ class ProjectsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM projects")
 
     def create(self, name: str, client_id: int) -> int:
-        result = self._execute(
-            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id) RETURNING id",
+        return self._insert_returning_id(
+            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id)",
             {"name": name, "client_id": client_id},
         )
-        return int(result.scalar_one())
 
     def delete(self, project_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -222,11 +232,10 @@ class AssignmentsRepository(BaseRepository):
         end_date: str,
         percentage: int,
     ) -> int:
-        result = self._execute(
+        return self._insert_returning_id(
             """
             INSERT INTO assignments (person_id, project_id, start_date, end_date, percentage)
             VALUES (:person_id, :project_id, :start_date, :end_date, :percentage)
-            RETURNING id
             """,
             {
                 "person_id": person_id,
@@ -236,7 +245,6 @@ class AssignmentsRepository(BaseRepository):
                 "percentage": percentage,
             },
         )
-        return int(result.scalar_one())
 
     def find_existing(
         self, person_id: int, project_id: int, start_date: str, end_date: str
@@ -577,6 +585,7 @@ class ResourcePlannerAPI:
 
         @app.route("/api/people", methods=["GET"])
         def get_people():
+            logger.info("Listing people")
             people = self.people_repo.list()
             return jsonify(people)
 
@@ -584,21 +593,25 @@ class ResourcePlannerAPI:
         def add_person():
             data = ValidationService.require_json({"name", "role"})
             person_id = self.people_repo.create(data["name"], data["role"])
+            logger.info("Created person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 201
 
         @app.route("/api/people/<int:person_id>", methods=["DELETE"])
         def delete_person(person_id: int):
             self.people_repo.delete(person_id)
+            logger.info("Deleted person id=%s", person_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/people/<int:person_id>", methods=["PUT"])
         def update_person(person_id: int):
             data = ValidationService.require_json({"name", "role"})
             self.people_repo.update(person_id, data["name"], data["role"])
+            logger.info("Updated person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 200
 
         @app.route("/api/clients", methods=["GET"])
         def get_clients():
+            logger.info("Listing clients")
             clients = self.clients_repo.list()
             return jsonify(clients)
 
@@ -606,21 +619,25 @@ class ResourcePlannerAPI:
         def add_client():
             data = ValidationService.require_json({"name"})
             client_id = self.clients_repo.create(data["name"])
+            logger.info("Created client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 201
 
         @app.route("/api/clients/<int:client_id>", methods=["DELETE"])
         def delete_client(client_id: int):
             self.clients_repo.delete(client_id)
+            logger.info("Deleted client id=%s", client_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/clients/<int:client_id>", methods=["PUT"])
         def update_client(client_id: int):
             data = ValidationService.require_json({"name"})
             self.clients_repo.update(client_id, data["name"])
+            logger.info("Updated client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 200
 
         @app.route("/api/projects", methods=["GET"])
         def get_projects():
+            logger.info("Listing projects")
             projects = self.projects_repo.list()
             return jsonify(projects)
 
@@ -628,21 +645,25 @@ class ResourcePlannerAPI:
         def add_project():
             data = ValidationService.require_json({"name", "clientId"})
             project_id = self.projects_repo.create(data["name"], data["clientId"])
+            logger.info("Created project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 201
 
         @app.route("/api/projects/<int:project_id>", methods=["DELETE"])
         def delete_project(project_id: int):
             self.projects_repo.delete(project_id)
+            logger.info("Deleted project id=%s", project_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/projects/<int:project_id>", methods=["PUT"])
         def update_project(project_id: int):
             data = ValidationService.require_json({"name", "clientId"})
             self.projects_repo.update(project_id, data["name"], data["clientId"])
+            logger.info("Updated project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 200
 
         @app.route("/api/assignments", methods=["GET"])
         def get_assignments():
+            logger.info("Listing assignments")
             assignments = self.assignments_repo.list()
             return jsonify(assignments)
 
@@ -659,6 +680,7 @@ class ResourcePlannerAPI:
                 normalized["endDate"],
                 normalized["percentage"],
             )
+            logger.info("Created assignment id=%s", assignment_id)
             return (
                 jsonify(
                     {
@@ -691,6 +713,7 @@ class ResourcePlannerAPI:
             self.assignments_repo.update(
                 assignment_id, data["personId"], data["projectId"], start_date, end_date, percentage
             )
+            logger.info("Updated assignment id=%s", assignment_id)
             return (
                 jsonify(
                     {
@@ -708,18 +731,21 @@ class ResourcePlannerAPI:
         @app.route("/api/assignments/<int:assignment_id>", methods=["DELETE"])
         def delete_assignment(assignment_id: int):
             self.assignments_repo.delete(assignment_id)
+            logger.info("Deleted assignment id=%s", assignment_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/bulk-upload/people", methods=["POST"])
         def bulk_upload_people():
             data = ValidationService.require_json({"people"})
             added = self.bulk_service.bulk_people(data["people"])
+            logger.info("Bulk uploaded %s people", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/clients", methods=["POST"])
         def bulk_upload_clients():
             data = ValidationService.require_json({"clients"})
             added = self.bulk_service.bulk_clients(data["clients"])
+            logger.info("Bulk uploaded %s clients", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/projects", methods=["POST"])
@@ -729,6 +755,7 @@ class ResourcePlannerAPI:
                 added = self.bulk_service.bulk_projects(data["projects"])
             except ValueError as exc:
                 abort(400, description=str(exc))
+            logger.info("Bulk uploaded %s projects", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/assignments", methods=["POST"])
@@ -775,6 +802,7 @@ class ResourcePlannerAPI:
             except Exception as exc:
                 logger.warning("Bulk upload assignments failed: %s", exc)
                 abort(400, description=str(exc))
+            logger.info("Bulk uploaded %s assignments", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/clear-all", methods=["POST"])
