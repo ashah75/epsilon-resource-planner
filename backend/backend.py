@@ -13,13 +13,13 @@ from __future__ import annotations
 import logging
 import os
 import re
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
+from sqlalchemy import create_engine, text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,23 +30,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _resolve_sqlite_path(db_url: str) -> str:
-    """Return a filesystem path for a SQLite URL or raw path."""
-
-    if db_url.startswith("sqlite:///"):
-        return db_url.replace("sqlite:///", "", 1)
-    return db_url
-
-
 @dataclass(frozen=True)
 class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
-    sqlite_url: str = os.environ.get("DATABASE_URL", "sqlite:///resource_planner.db")
+    database_url: str = os.environ.get("DATABASE_URL", "sqlite:///resource_planner.db")
 
     @property
-    def sqlite_path(self) -> str:
-        return _resolve_sqlite_path(self.sqlite_url)
+    def is_sqlite(self) -> bool:
+        return self.database_url.startswith("sqlite")
 
 
 # ---------------------------------------------------------------------------
@@ -57,29 +49,23 @@ class DatabaseConfig:
 class ConnectionProvider(Protocol):
     """Protocol for obtaining database connections."""
 
-    def get_connection(self) -> sqlite3.Connection:
+    def get_connection(self):
         ...
 
 
-class SQLiteConnectionProvider:
-    """Create SQLite connections with secure defaults."""
+class SQLAlchemyConnectionProvider:
+    """Create SQLAlchemy connections with secure defaults."""
 
     def __init__(self, config: DatabaseConfig) -> None:
         self._config = config
+        self._engine = create_engine(self._config.database_url, pool_pre_ping=True, future=True)
 
-    def get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(
-            self._config.sqlite_path, detect_types=sqlite3.PARSE_DECLTYPES
-        )
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    def get_connection(self):
+        return self._engine.begin()
 
 
 def create_db_connection(connection_url: str):
     """Create a connection to a relational database using SQLAlchemy URLs."""
-
-    from sqlalchemy import create_engine
 
     engine = create_engine(connection_url, pool_pre_ping=True, future=True)
     return engine.connect()
@@ -96,16 +82,17 @@ class BaseRepository:
     def __init__(self, connection_provider: ConnectionProvider) -> None:
         self._connection_provider = connection_provider
 
-    def _execute(self, query: str, parameters: Sequence[Any] = ()):
+    def _execute(self, query: str, parameters: Mapping[str, Any] | None = None):
         with self._connection_provider.get_connection() as conn:
-            return conn.execute(query, parameters)
+            return conn.execute(text(query), parameters or {})
 
-    def _fetchall(self, query: str, parameters: Sequence[Any] = ()) -> List[Dict[str, Any]]:
-        rows = self._execute(query, parameters).fetchall()
-        return [dict(row) for row in rows]
+    def _fetchall(self, query: str, parameters: Mapping[str, Any] | None = None) -> List[Dict[str, Any]]:
+        result = self._execute(query, parameters)
+        return [dict(row) for row in result.mappings().all()]
 
-    def _fetchone(self, query: str, parameters: Sequence[Any] = ()) -> Dict[str, Any] | None:
-        row = self._execute(query, parameters).fetchone()
+    def _fetchone(self, query: str, parameters: Mapping[str, Any] | None = None) -> Dict[str, Any] | None:
+        result = self._execute(query, parameters)
+        row = result.mappings().first()
         return dict(row) if row else None
 
 
@@ -114,16 +101,31 @@ class PeopleRepository(BaseRepository):
         return self._fetchall("SELECT * FROM people")
 
     def create(self, name: str, role: str) -> int:
-        cursor = self._execute("INSERT INTO people (name, role) VALUES (?, ?)", (name, role))
-        return cursor.lastrowid
+        result = self._execute(
+            "INSERT INTO people (name, role) VALUES (:name, :role) RETURNING id",
+            {"name": name, "role": role},
+        )
+        return int(result.scalar_one())
 
     def delete(self, person_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            conn.execute("DELETE FROM assignments WHERE person_id = ?", (person_id,))
-            conn.execute("DELETE FROM people WHERE id = ?", (person_id,))
+            conn.execute(
+                text("DELETE FROM assignments WHERE person_id = :person_id"),
+                {"person_id": person_id},
+            )
+            conn.execute(text("DELETE FROM people WHERE id = :person_id"), {"person_id": person_id})
 
     def update(self, person_id: int, name: str, role: str) -> None:
-        self._execute("UPDATE people SET name = ?, role = ? WHERE id = ?", (name, role, person_id))
+        self._execute(
+            "UPDATE people SET name = :name, role = :role WHERE id = :person_id",
+            {"name": name, "role": role, "person_id": person_id},
+        )
+
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone(
+            "SELECT id FROM people WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
+        return row["id"] if row else None
 
 
 class ClientsRepository(BaseRepository):
@@ -131,20 +133,40 @@ class ClientsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM clients")
 
     def create(self, name: str) -> int:
-        cursor = self._execute("INSERT INTO clients (name) VALUES (?)", (name,))
-        return cursor.lastrowid
+        result = self._execute(
+            "INSERT INTO clients (name) VALUES (:name) RETURNING id", {"name": name}
+        )
+        return int(result.scalar_one())
 
     def delete(self, client_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            projects = conn.execute("SELECT id FROM projects WHERE client_id = ?", (client_id,)).fetchall()
+            projects = conn.execute(
+                text("SELECT id FROM projects WHERE client_id = :client_id"),
+                {"client_id": client_id},
+            ).mappings().all()
             project_ids = [project["id"] for project in projects]
             for project_id in project_ids:
-                conn.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE client_id = ?", (client_id,))
-            conn.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+                conn.execute(
+                    text("DELETE FROM assignments WHERE project_id = :project_id"),
+                    {"project_id": project_id},
+                )
+            conn.execute(
+                text("DELETE FROM projects WHERE client_id = :client_id"),
+                {"client_id": client_id},
+            )
+            conn.execute(text("DELETE FROM clients WHERE id = :client_id"), {"client_id": client_id})
 
     def update(self, client_id: int, name: str) -> None:
-        self._execute("UPDATE clients SET name = ? WHERE id = ?", (name, client_id))
+        self._execute(
+            "UPDATE clients SET name = :name WHERE id = :client_id",
+            {"name": name, "client_id": client_id},
+        )
+
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone(
+            "SELECT id FROM clients WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
+        return row["id"] if row else None
 
 
 class ProjectsRepository(BaseRepository):
@@ -152,21 +174,38 @@ class ProjectsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM projects")
 
     def create(self, name: str, client_id: int) -> int:
-        cursor = self._execute(
-            "INSERT INTO projects (name, client_id) VALUES (?, ?)", (name, client_id)
+        result = self._execute(
+            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id) RETURNING id",
+            {"name": name, "client_id": client_id},
         )
-        return cursor.lastrowid
+        return int(result.scalar_one())
 
     def delete(self, project_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            conn.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            conn.execute(
+                text("DELETE FROM assignments WHERE project_id = :project_id"),
+                {"project_id": project_id},
+            )
+            conn.execute(text("DELETE FROM projects WHERE id = :project_id"), {"project_id": project_id})
 
     def update(self, project_id: int, name: str, client_id: int) -> None:
         self._execute(
-            "UPDATE projects SET name = ?, client_id = ? WHERE id = ?",
-            (name, client_id, project_id),
+            "UPDATE projects SET name = :name, client_id = :client_id WHERE id = :project_id",
+            {"name": name, "client_id": client_id, "project_id": project_id},
         )
+
+    def get_id_by_name(self, name: str) -> int | None:
+        row = self._fetchone(
+            "SELECT id FROM projects WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
+        return row["id"] if row else None
+
+    def get_id_by_name_and_client(self, name: str, client_id: int) -> int | None:
+        row = self._fetchone(
+            "SELECT id FROM projects WHERE LOWER(name) = LOWER(:name) AND client_id = :client_id",
+            {"name": name, "client_id": client_id},
+        )
+        return row["id"] if row else None
 
 
 class AssignmentsRepository(BaseRepository):
@@ -181,17 +220,46 @@ class AssignmentsRepository(BaseRepository):
         end_date: str,
         percentage: int,
     ) -> int:
-        cursor = self._execute(
+        result = self._execute(
             """
             INSERT INTO assignments (person_id, project_id, start_date, end_date, percentage)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (:person_id, :project_id, :start_date, :end_date, :percentage)
+            RETURNING id
             """,
-            (person_id, project_id, start_date, end_date, percentage),
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "percentage": percentage,
+            },
         )
-        return cursor.lastrowid
+        return int(result.scalar_one())
+
+    def find_existing(
+        self, person_id: int, project_id: int, start_date: str, end_date: str
+    ) -> int | None:
+        row = self._fetchone(
+            """
+            SELECT id FROM assignments
+            WHERE person_id = :person_id
+              AND project_id = :project_id
+              AND start_date = :start_date
+              AND end_date = :end_date
+            """,
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        return row["id"] if row else None
 
     def delete(self, assignment_id: int) -> None:
-        self._execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
+        self._execute(
+            "DELETE FROM assignments WHERE id = :assignment_id", {"assignment_id": assignment_id}
+        )
 
     def update(
         self,
@@ -205,10 +273,21 @@ class AssignmentsRepository(BaseRepository):
         self._execute(
             """
             UPDATE assignments
-            SET person_id = ?, project_id = ?, start_date = ?, end_date = ?, percentage = ?
-            WHERE id = ?
+            SET person_id = :person_id,
+                project_id = :project_id,
+                start_date = :start_date,
+                end_date = :end_date,
+                percentage = :percentage
+            WHERE id = :assignment_id
             """,
-            (person_id, project_id, start_date, end_date, percentage, assignment_id),
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "percentage": percentage,
+                "assignment_id": assignment_id,
+            },
         )
 
 
@@ -297,28 +376,88 @@ class BulkUploadService:
     def bulk_projects(self, projects_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for project in projects_payload:
-            new_id = self._projects_repo.create(project["name"], project["clientId"])
-            added.append({"id": new_id, "name": project["name"], "clientId": project["clientId"]})
+            client_id = project.get("clientId")
+            if client_id is None:
+                client_name = project.get("clientName") or project.get("client_name")
+                if not client_name:
+                    raise ValueError("Project requires clientId or clientName")
+                client_id = self._clients_repo.get_id_by_name(client_name)
+                if client_id is None:
+                    raise ValueError(f"Client not found: {client_name}")
+
+            new_id = self._projects_repo.create(project["name"], client_id)
+            added.append({"id": new_id, "name": project["name"], "clientId": client_id})
         return added
 
     def bulk_assignments(self, assignments_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for assignment in assignments_payload:
+            def _clean_name(value: Any) -> str | None:
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    trimmed = value.strip()
+                    return trimmed if trimmed else None
+                return str(value)
+
+            start_date = assignment.get("startDate") or assignment.get("start_date")
+            end_date = assignment.get("endDate") or assignment.get("end_date")
+            if not start_date or not end_date:
+                raise ValueError("Assignment requires startDate/start_date and endDate/end_date")
+
+            person_id = assignment.get("personId") or assignment.get("person_id")
+            if isinstance(person_id, str) and person_id.strip():
+                try:
+                    person_id = int(person_id)
+                except ValueError:
+                    raise ValueError("Assignment personId must be a number") from None
+            if person_id is None:
+                person_name = _clean_name(assignment.get("personName") or assignment.get("person_name"))
+                if not person_name:
+                    raise ValueError("Assignment requires personId or personName")
+                person_id = self._people_repo.get_id_by_name(person_name)
+                if person_id is None:
+                    raise ValueError(f"Person not found: {person_name}")
+
+            project_id = assignment.get("projectId") or assignment.get("project_id")
+            if isinstance(project_id, str) and project_id.strip():
+                try:
+                    project_id = int(project_id)
+                except ValueError:
+                    raise ValueError("Assignment projectId must be a number") from None
+            if project_id is None:
+                project_name = _clean_name(assignment.get("projectName") or assignment.get("project_name"))
+                client_name = _clean_name(assignment.get("clientName") or assignment.get("client_name"))
+                if not project_name or not client_name:
+                    raise ValueError("Assignment requires projectId or projectName with clientName")
+                client_id = self._clients_repo.get_id_by_name(client_name)
+                if client_id is None:
+                    raise ValueError(f"Client not found: {client_name}")
+                project_id = self._projects_repo.get_id_by_name_and_client(project_name, client_id)
+                if project_id is None:
+                    raise ValueError(f"Project not found: {project_name} (client: {client_name})")
+
             percentage = assignment.get("percentage", 100)
+            if percentage in ("", None):
+                percentage = 100
+            try:
+                percentage = int(percentage)
+            except (TypeError, ValueError):
+                raise ValueError("Assignment percentage must be a number") from None
             new_id = self._assignments_repo.create(
-                assignment["personId"],
-                assignment["projectId"],
-                assignment["startDate"],
-                assignment["endDate"],
+                person_id,
+                project_id,
+                start_date,
+                end_date,
                 percentage,
             )
             added.append(
                 {
                     "id": new_id,
-                    "personId": assignment["personId"],
-                    "projectId": assignment["projectId"],
-                    "startDate": assignment["startDate"],
-                    "endDate": assignment["endDate"],
+                    "personId": person_id,
+                    "projectId": project_id,
+                    "startDate": start_date,
+                    "endDate": end_date,
                     "percentage": percentage,
                 }
             )
@@ -328,45 +467,55 @@ class BulkUploadService:
 class DatabaseInitializer:
     """Handle creation of database schema."""
 
-    def __init__(self, connection_provider: ConnectionProvider) -> None:
+    def __init__(self, connection_provider: ConnectionProvider, config: DatabaseConfig) -> None:
         self._connection_provider = connection_provider
+        self._config = config
 
     def initialize(self) -> None:
+        if not self._config.is_sqlite:
+            logger.info("Skipping schema initialization for non-SQLite database.")
+            return
+
+        schema = """
+        PRAGMA foreign_keys = ON;
+
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            client_id INTEGER NOT NULL,
+            FOREIGN KEY (client_id) REFERENCES clients(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            percentage INTEGER DEFAULT 100,
+            FOREIGN KEY (person_id) REFERENCES people(id),
+            FOREIGN KEY (project_id) REFERENCES projects(id)
+        );
+        """
         with self._connection_provider.get_connection() as conn:
-            conn.executescript(
-                """
-                PRAGMA foreign_keys = ON;
-
-                CREATE TABLE IF NOT EXISTS people (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    role TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS clients (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS projects (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    client_id INTEGER NOT NULL,
-                    FOREIGN KEY (client_id) REFERENCES clients(id)
-                );
-
-                CREATE TABLE IF NOT EXISTS assignments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    person_id INTEGER NOT NULL,
-                    project_id INTEGER NOT NULL,
-                    start_date TEXT NOT NULL,
-                    end_date TEXT NOT NULL,
-                    percentage INTEGER DEFAULT 100,
-                    FOREIGN KEY (person_id) REFERENCES people(id),
-                    FOREIGN KEY (project_id) REFERENCES projects(id)
-                );
-                """
-            )
+            raw = getattr(conn, "connection", None)
+            if raw and hasattr(raw, "executescript"):
+                raw.executescript(schema)
+            else:
+                for statement in schema.split(";"):
+                    if statement.strip():
+                        conn.execute(text(statement))
 
 
 # ---------------------------------------------------------------------------
@@ -380,8 +529,8 @@ class ResourcePlannerAPI:
         self.app = Flask(__name__)
         CORS(self.app)
 
-        self.connection_provider = SQLiteConnectionProvider(config)
-        self.db_initializer = DatabaseInitializer(self.connection_provider)
+        self.connection_provider = SQLAlchemyConnectionProvider(config)
+        self.db_initializer = DatabaseInitializer(self.connection_provider, config)
 
         self.people_repo = PeopleRepository(self.connection_provider)
         self.clients_repo = ClientsRepository(self.connection_provider)
@@ -392,6 +541,76 @@ class ResourcePlannerAPI:
         )
 
         self._register_routes()
+
+    def _normalize_assignment_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not payload:
+            abort(400, description="Assignment payload is required")
+
+        def _clean_name(value: Any) -> str | None:
+            if value is None:
+                return None
+            if isinstance(value, str):
+                trimmed = value.strip()
+                return trimmed if trimmed else None
+            return str(value)
+
+        person_id = payload.get("personId") or payload.get("person_id")
+        if isinstance(person_id, str) and person_id.strip():
+            try:
+                person_id = int(person_id)
+            except ValueError:
+                abort(400, description="Assignment personId must be a number")
+        if person_id is None:
+            person_name = _clean_name(payload.get("personName") or payload.get("person_name"))
+            if not person_name:
+                abort(400, description="Assignment requires personId or personName")
+            person_id = self.people_repo.get_id_by_name(person_name)
+            if person_id is None:
+                abort(400, description=f"Person not found: {person_name}")
+
+        project_id = payload.get("projectId") or payload.get("project_id")
+        if isinstance(project_id, str) and project_id.strip():
+            try:
+                project_id = int(project_id)
+            except ValueError:
+                abort(400, description="Assignment projectId must be a number")
+        if project_id is None:
+            project_name = _clean_name(payload.get("projectName") or payload.get("project_name"))
+            client_name = _clean_name(payload.get("clientName") or payload.get("client_name"))
+            if not project_name or not client_name:
+                abort(400, description="Assignment requires projectId or projectName with clientName")
+            client_id = self.clients_repo.get_id_by_name(client_name)
+            if client_id is None:
+                abort(400, description=f"Client not found: {client_name}")
+            project_id = self.projects_repo.get_id_by_name_and_client(project_name, client_id)
+            if project_id is None:
+                abort(400, description=f"Project not found: {project_name} (client: {client_name})")
+
+        start_date = payload.get("startDate") or payload.get("start_date")
+        end_date = payload.get("endDate") or payload.get("end_date")
+        if not start_date or not end_date:
+            if "period" in payload:
+                dates = ValidationService.convert_period_to_dates(int(payload["period"]))
+                start_date = dates["start"]
+                end_date = dates["end"]
+            else:
+                abort(400, description="Either startDate/endDate or period is required")
+
+        percentage = payload.get("percentage", 100)
+        if percentage in ("", None):
+            percentage = 100
+        try:
+            percentage = int(percentage)
+        except (TypeError, ValueError):
+            abort(400, description="Assignment percentage must be a number")
+
+        return {
+            "personId": person_id,
+            "projectId": project_id,
+            "startDate": start_date,
+            "endDate": end_date,
+            "percentage": percentage,
+        }
 
     # ---------------------------- Routes ---------------------------------
     def _register_routes(self) -> None:
@@ -470,31 +689,26 @@ class ResourcePlannerAPI:
 
         @app.route("/api/assignments", methods=["POST"])
         def add_assignment():
-            data = ValidationService.require_json({"personId", "projectId"})
-            percentage = int(data.get("percentage", 100))
-
-            if "startDate" in data and "endDate" in data:
-                start_date = data["startDate"]
-                end_date = data["endDate"]
-            elif "period" in data:
-                dates = ValidationService.convert_period_to_dates(int(data["period"]))
-                start_date = dates["start"]
-                end_date = dates["end"]
-            else:
-                abort(400, description="Either startDate/endDate or period is required")
-
+            if not request.is_json:
+                abort(400, description="Request must be JSON")
+            data = request.get_json() or {}
+            normalized = self._normalize_assignment_payload(data)
             assignment_id = self.assignments_repo.create(
-                data["personId"], data["projectId"], start_date, end_date, percentage
+                normalized["personId"],
+                normalized["projectId"],
+                normalized["startDate"],
+                normalized["endDate"],
+                normalized["percentage"],
             )
             return (
                 jsonify(
                     {
                         "id": assignment_id,
-                        "personId": data["personId"],
-                        "projectId": data["projectId"],
-                        "startDate": start_date,
-                        "endDate": end_date,
-                        "percentage": percentage,
+                        "personId": normalized["personId"],
+                        "projectId": normalized["projectId"],
+                        "startDate": normalized["startDate"],
+                        "endDate": normalized["endDate"],
+                        "percentage": normalized["percentage"],
                     }
                 ),
                 201,
@@ -552,22 +766,65 @@ class ResourcePlannerAPI:
         @app.route("/api/bulk-upload/projects", methods=["POST"])
         def bulk_upload_projects():
             data = ValidationService.require_json({"projects"})
-            added = self.bulk_service.bulk_projects(data["projects"])
+            try:
+                added = self.bulk_service.bulk_projects(data["projects"])
+            except ValueError as exc:
+                abort(400, description=str(exc))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/assignments", methods=["POST"])
         def bulk_upload_assignments():
             data = ValidationService.require_json({"assignments"})
-            added = self.bulk_service.bulk_assignments(data["assignments"])
+            try:
+                logger.info("Bulk upload assignments request: %s rows", len(data["assignments"]))
+                added = []
+                for row in data["assignments"]:
+                    normalized = self._normalize_assignment_payload(row)
+                    assignment_id = self.assignments_repo.find_existing(
+                        normalized["personId"],
+                        normalized["projectId"],
+                        normalized["startDate"],
+                        normalized["endDate"],
+                    )
+                    if assignment_id:
+                        self.assignments_repo.update(
+                            assignment_id,
+                            normalized["personId"],
+                            normalized["projectId"],
+                            normalized["startDate"],
+                            normalized["endDate"],
+                            normalized["percentage"],
+                        )
+                    else:
+                        assignment_id = self.assignments_repo.create(
+                            normalized["personId"],
+                            normalized["projectId"],
+                            normalized["startDate"],
+                            normalized["endDate"],
+                            normalized["percentage"],
+                        )
+                    added.append(
+                        {
+                            "id": assignment_id,
+                            "personId": normalized["personId"],
+                            "projectId": normalized["projectId"],
+                            "startDate": normalized["startDate"],
+                            "endDate": normalized["endDate"],
+                            "percentage": normalized["percentage"],
+                        }
+                    )
+            except Exception as exc:
+                logger.warning("Bulk upload assignments failed: %s", exc)
+                abort(400, description=str(exc))
             return jsonify({"added": added}), 201
 
         @app.route("/api/clear-all", methods=["POST"])
         def clear_all():
             with self.connection_provider.get_connection() as conn:
-                conn.execute("DELETE FROM assignments")
-                conn.execute("DELETE FROM projects")
-                conn.execute("DELETE FROM clients")
-                conn.execute("DELETE FROM people")
+                conn.execute(text("DELETE FROM assignments"))
+                conn.execute(text("DELETE FROM projects"))
+                conn.execute(text("DELETE FROM clients"))
+                conn.execute(text("DELETE FROM people"))
             return jsonify({"success": True}), 200
 
         @app.route("/api/health", methods=["GET"])
@@ -576,14 +833,16 @@ class ResourcePlannerAPI:
 
     # ---------------------------- Lifecycle ---------------------------------
     def init_database(self) -> None:
-        logger.info("Initializing database at %s", self.config.sqlite_path)
+        logger.info("Initializing database at %s", self.config.database_url)
         self.db_initializer.initialize()
 
     def run(self) -> None:
+        host = os.environ.get("BACKEND_HOST", "127.0.0.1")
+        port = int(os.environ.get("BACKEND_PORT", "8000"))
         logger.info("🚀 Backend server starting...")
-        logger.info("📊 Database: SQLite (%s)", self.config.sqlite_path)
-        logger.info("🌐 API running on: http://localhost:5000")
-        self.app.run(debug=False, host="0.0.0.0", port=5000)
+        logger.info("📊 Database: %s", self.config.database_url)
+        logger.info("🌐 API running on: http://%s:%s", host, port)
+        self.app.run(debug=False, host=host, port=port)
 
 
 config = DatabaseConfig()

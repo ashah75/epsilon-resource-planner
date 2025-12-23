@@ -14,7 +14,14 @@ import * as XLSX from 'xlsx';
  */
 export default function Reports({ people, clients, projects, assignments, onBack }) {
   const [currentPeriodOffset, setCurrentPeriodOffset] = useState(0);
-  const [viewType, setViewType] = useState('team'); // 'team', 'project', 'client'
+  const [viewType, setViewType] = useState('team'); // 'team', 'project'
+  const [projectSortKey, setProjectSortKey] = useState('project');
+  const [projectSortDir, setProjectSortDir] = useState('asc');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
+  const [groupByClient, setGroupByClient] = useState(false);
+  const [activeTooltipRow, setActiveTooltipRow] = useState(null);
+  const [activeTooltipPosition, setActiveTooltipPosition] = useState('below');
 
   // Generate 6 months for report
   const months = useMemo(() => {
@@ -48,40 +55,69 @@ export default function Reports({ people, clients, projects, assignments, onBack
   const projectDistribution = useMemo(() => {
     return projects.map(project => {
       const projectAssignments = assignments.filter(a => a.projectId === project.id);
-      const uniquePeople = [...new Set(projectAssignments.map(a => a.personId))];
+      const uniquePeopleIds = [...new Set(projectAssignments.map(a => a.personId))];
+      const peopleNames = uniquePeopleIds
+        .map(personId => people.find(p => p.id === personId)?.name)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
       const totalAllocation = projectAssignments.reduce((sum, a) => sum + a.percentage, 0);
       const client = clients.find(c => c.id === project.clientId);
       
       return {
         project,
         client,
-        peopleCount: uniquePeople.length,
+        peopleCount: uniquePeopleIds.length,
+        peopleNames,
         totalAllocation,
-        avgAllocation: uniquePeople.length > 0 ? totalAllocation / uniquePeople.length : 0
+        avgAllocation: uniquePeopleIds.length > 0 ? totalAllocation / uniquePeopleIds.length : 0
       };
-    }).sort((a, b) => b.totalAllocation - a.totalAllocation);
-  }, [projects, assignments, clients]);
+    });
+  }, [projects, assignments, clients, people]);
 
-  // Calculate client engagement
-  const clientEngagement = useMemo(() => {
-    return clients.map(client => {
-      const clientProjects = projects.filter(p => p.clientId === client.id);
-      const clientAssignments = assignments.filter(a => {
-        const project = projects.find(p => p.id === a.projectId);
-        return project && project.clientId === client.id;
-      });
-      const uniquePeople = [...new Set(clientAssignments.map(a => a.personId))];
-      const totalAllocation = clientAssignments.reduce((sum, a) => sum + a.percentage, 0);
-      
-      return {
-        client,
-        projectCount: clientProjects.length,
-        peopleCount: uniquePeople.length,
-        totalAllocation,
-        color: getClientColor(client.id)
-      };
-    }).sort((a, b) => b.totalAllocation - a.totalAllocation);
-  }, [clients, projects, assignments]);
+  const filteredProjectRows = useMemo(() => {
+    return projectDistribution.filter(row => {
+      const matchesProject = projectFilter === 'all' || row.project.id === Number(projectFilter);
+      const matchesClient = clientFilter === 'all' || row.client?.id === Number(clientFilter);
+      return matchesProject && matchesClient;
+    });
+  }, [projectDistribution, projectFilter, clientFilter]);
+
+  const sortedProjectRows = useMemo(() => {
+    const sorted = [...filteredProjectRows];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      if (projectSortKey === 'project') {
+        comparison = a.project.name.localeCompare(b.project.name);
+      } else if (projectSortKey === 'client') {
+        comparison = (a.client?.name || '').localeCompare(b.client?.name || '');
+      } else if (projectSortKey === 'people') {
+        comparison = a.peopleCount - b.peopleCount;
+      } else if (projectSortKey === 'avg') {
+        comparison = a.avgAllocation - b.avgAllocation;
+      }
+      return projectSortDir === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [filteredProjectRows, projectSortKey, projectSortDir]);
+
+  const groupedProjectRows = useMemo(() => {
+    const groups = new Map();
+    sortedProjectRows.forEach(row => {
+      const key = row.client?.name || 'Unknown Client';
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(row);
+    });
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [sortedProjectRows]);
+
+  const handleTooltipEnter = (event, rowId) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const viewportMid = window.innerHeight / 2;
+    setActiveTooltipPosition(rect.top > viewportMid ? 'above' : 'below');
+    setActiveTooltipRow(rowId);
+  };
 
   // Export to XLSX
   const handleExport = () => {
@@ -101,30 +137,16 @@ export default function Reports({ people, clients, projects, assignments, onBack
 
     // Project Distribution Sheet
     const projectData = [
-      ['Project', 'Client', 'People', 'Total Allocation', 'Avg Allocation'],
+      ['Project', 'Client', 'People', 'Avg Allocation'],
       ...projectDistribution.map(row => [
         row.project.name,
         row.client?.name || 'Unknown',
         row.peopleCount,
-        `${row.totalAllocation}%`,
         `${Math.round(row.avgAllocation)}%`
       ])
     ];
     const projectSheet = XLSX.utils.aoa_to_sheet(projectData);
     XLSX.utils.book_append_sheet(wb, projectSheet, 'Project Distribution');
-
-    // Client Engagement Sheet
-    const clientData = [
-      ['Client', 'Projects', 'People', 'Total Allocation'],
-      ...clientEngagement.map(row => [
-        row.client.name,
-        row.projectCount,
-        row.peopleCount,
-        `${row.totalAllocation}%`
-      ])
-    ];
-    const clientSheet = XLSX.utils.aoa_to_sheet(clientData);
-    XLSX.utils.book_append_sheet(wb, clientSheet, 'Client Engagement');
 
     // Write file
     XLSX.writeFile(wb, 'resource-allocation-report.xlsx');
@@ -227,13 +249,6 @@ export default function Reports({ people, clients, projects, assignments, onBack
         >
           📊 Project Distribution
         </button>
-        <button
-          className={`btn ${viewType === 'client' ? 'btn-active' : ''}`}
-          onClick={() => setViewType('client')}
-          style={{ padding: '0.5rem 1rem' }}
-        >
-          🏢 Client Engagement
-        </button>
       </div>
 
       {/* Team Allocation View */}
@@ -279,87 +294,157 @@ export default function Reports({ people, clients, projects, assignments, onBack
       {/* Project Distribution View */}
       {viewType === 'project' && (
         <div style={{ overflowX: 'auto' }}>
+          <div className="report-controls">
+            <label className="report-control">
+              Sort by
+              <select value={projectSortKey} onChange={event => setProjectSortKey(event.target.value)}>
+                <option value="project">Project</option>
+                <option value="client">Client</option>
+                <option value="people">People</option>
+                <option value="avg">Avg Allocation</option>
+              </select>
+            </label>
+            <label className="report-control">
+              Order
+              <select value={projectSortDir} onChange={event => setProjectSortDir(event.target.value)}>
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </label>
+            <label className="report-control">
+              Filter project
+              <select value={projectFilter} onChange={event => setProjectFilter(event.target.value)}>
+                <option value="all">All</option>
+                {projects
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(project => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="report-control">
+              Filter client
+              <select value={clientFilter} onChange={event => setClientFilter(event.target.value)}>
+                <option value="all">All</option>
+                {clients
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(client => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="report-control report-toggle">
+              <input
+                type="checkbox"
+                checked={groupByClient}
+                onChange={event => setGroupByClient(event.target.checked)}
+              />
+              Group by client
+            </label>
+          </div>
           <table className="report-table">
             <thead>
               <tr>
                 <th>Project</th>
                 <th>Client</th>
                 <th>People</th>
-                <th>Total Allocation</th>
                 <th>Avg per Person</th>
               </tr>
             </thead>
-            <tbody>
-              {projectDistribution.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600 }}>{row.project.name}</td>
-                  <td>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: getClientColor(row.client?.id),
-                        marginRight: '0.5rem'
-                      }}
-                    />
-                    {row.client?.name || 'Unknown'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.peopleCount}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                    {row.totalAllocation}%
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {Math.round(row.avgAllocation)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            {groupByClient ? (
+              groupedProjectRows.map(([clientName, rows]) => (
+                <tbody key={clientName}>
+                  <tr className="report-group-row">
+                    <td colSpan={4}>{clientName}</td>
+                  </tr>
+                  {rows.map(row => (
+                    <tr key={row.project.id}>
+                      <td style={{ fontWeight: 600 }}>{row.project.name}</td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            background: getClientColor(row.client?.id),
+                            marginRight: '0.5rem'
+                          }}
+                        />
+                        {row.client?.name || 'Unknown'}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          className="report-tooltip-wrapper"
+                          onMouseEnter={(event) => handleTooltipEnter(event, row.project.id)}
+                          onMouseLeave={() => setActiveTooltipRow(null)}
+                        >
+                          {row.peopleCount}
+                          {activeTooltipRow === row.project.id && (
+                            <span className={`report-tooltip ${activeTooltipPosition}`}>
+                              {row.peopleNames.length
+                                ? row.peopleNames.join(', ')
+                                : 'No assignments'}
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {Math.round(row.avgAllocation)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              ))
+            ) : (
+              <tbody>
+                {sortedProjectRows.map(row => (
+                    <tr key={row.project.id}>
+                      <td style={{ fontWeight: 600 }}>{row.project.name}</td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            background: getClientColor(row.client?.id),
+                            marginRight: '0.5rem'
+                          }}
+                        />
+                        {row.client?.name || 'Unknown'}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          className="report-tooltip-wrapper"
+                          onMouseEnter={(event) => handleTooltipEnter(event, row.project.id)}
+                          onMouseLeave={() => setActiveTooltipRow(null)}
+                        >
+                          {row.peopleCount}
+                          {activeTooltipRow === row.project.id && (
+                            <span className={`report-tooltip ${activeTooltipPosition}`}>
+                              {row.peopleNames.length ? row.peopleNames.join(', ') : 'No assignments'}
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {Math.round(row.avgAllocation)}%
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            )}
           </table>
         </div>
       )}
 
-      {/* Client Engagement View */}
-      {viewType === 'client' && (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="report-table">
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Projects</th>
-                <th>People</th>
-                <th>Total Allocation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientEngagement.map((row, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          background: row.color
-                        }}
-                      />
-                      <span style={{ fontWeight: 600 }}>{row.client.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.projectCount}</td>
-                  <td style={{ textAlign: 'center' }}>{row.peopleCount}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                    {row.totalAllocation}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

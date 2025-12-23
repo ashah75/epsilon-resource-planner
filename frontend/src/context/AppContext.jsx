@@ -1,5 +1,6 @@
 // App Context for Resource Planner
 import { createContext, useContext, useState, useEffect } from 'react';
+import { getPeriodDates, parseDateString } from '../utils/dates';
 import api from '../services/api';
 
 const AppContext = createContext();
@@ -214,14 +215,28 @@ export function AppProvider({ children }) {
   
   async function bulkUploadAssignments(assignmentsData) {
     const result = await api.bulkUploadAssignments(assignmentsData);
-    setAssignments([...assignments, ...result.added.map(a => ({
+    const addedAssignments = result.added.map(a => ({
       id: a.id,
       personId: a.personId,
       projectId: a.projectId,
       startDate: a.startDate,
       endDate: a.endDate,
       percentage: a.percentage
-    }))]);
+    }));
+    const combinedAssignments = [...assignments, ...addedAssignments];
+    setAssignments(combinedAssignments);
+
+    if (combinedAssignments.length > 0) {
+      const earliestStart = combinedAssignments.reduce((earliest, assignment) => {
+        const start = parseDateString(assignment.startDate);
+        return start < earliest ? start : earliest;
+      }, parseDateString(combinedAssignments[0].startDate));
+      const currentStart = getPeriodDates(currentPeriodOffset).startDate;
+      if (earliestStart < currentStart) {
+        const offset = (earliestStart.getFullYear() - 2026) * 12 + earliestStart.getMonth();
+        setCurrentPeriodOffset(offset);
+      }
+    }
     return result;
   }
   
