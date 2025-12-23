@@ -696,8 +696,8 @@ class ResourcePlannerAPI:
                         "id": assignment_id,
                         "personId": normalized["personId"],
                         "projectId": normalized["projectId"],
-                        "startDate": normalized["startDate"],
-                        "endDate": normalized["endDate"],
+                        "startDate": normalized["startDate"].isoformat(),
+                        "endDate": normalized["endDate"].isoformat(),
                         "percentage": normalized["percentage"],
                     }
                 ),
@@ -706,32 +706,29 @@ class ResourcePlannerAPI:
 
         @app.route("/api/assignments/<int:assignment_id>", methods=["PUT"])
         def update_assignment(assignment_id: int):
-            data = ValidationService.require_json({"personId", "projectId"})
-            percentage = int(data.get("percentage", 100))
-
-            if "startDate" in data and "endDate" in data:
-                start_date = data["startDate"]
-                end_date = data["endDate"]
-            elif "period" in data:
-                dates = ValidationService.convert_period_to_dates(int(data["period"]))
-                start_date = dates["start"]
-                end_date = dates["end"]
-            else:
-                abort(400, description="Either startDate/endDate or period is required")
+            if not request.is_json:
+                abort(400, description="Request must be JSON")
+            data = request.get_json() or {}
+            normalized = self._normalize_assignment_payload(data)
 
             self.assignments_repo.update(
-                assignment_id, data["personId"], data["projectId"], start_date, end_date, percentage
+                assignment_id,
+                normalized["personId"],
+                normalized["projectId"],
+                normalized["startDate"],
+                normalized["endDate"],
+                normalized["percentage"],
             )
             logger.info("Updated assignment id=%s", assignment_id)
             return (
                 jsonify(
                     {
                         "id": assignment_id,
-                        "personId": data["personId"],
-                        "projectId": data["projectId"],
-                        "startDate": start_date,
-                        "endDate": end_date,
-                        "percentage": percentage,
+                        "personId": normalized["personId"],
+                        "projectId": normalized["projectId"],
+                        "startDate": normalized["startDate"].isoformat(),
+                        "endDate": normalized["endDate"].isoformat(),
+                        "percentage": normalized["percentage"],
                     }
                 ),
                 200,
