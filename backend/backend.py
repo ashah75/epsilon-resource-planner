@@ -14,7 +14,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
@@ -574,9 +574,9 @@ class ResourcePlannerAPI:
         except (TypeError, ValueError):
             abort(400, description="Assignment percentage must be a number")
 
-        def _normalize_date(value: str) -> str:
+        def _normalize_date(value: str) -> date:
             try:
-                return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+                return datetime.strptime(value, "%Y-%m-%d").date()
             except ValueError:
                 abort(400, description="Dates must be in YYYY-MM-DD format")
 
