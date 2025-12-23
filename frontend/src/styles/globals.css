@@ -951,8 +951,9 @@ body {
   z-index: 20;
 }
 
-.report-tooltip-wrapper:hover .report-tooltip {
-  opacity: 1;
+.report-tooltip.above {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .button-small {

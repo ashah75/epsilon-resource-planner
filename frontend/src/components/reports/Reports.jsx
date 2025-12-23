@@ -20,6 +20,8 @@ export default function Reports({ people, clients, projects, assignments, onBack
   const [projectFilter, setProjectFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
   const [groupByClient, setGroupByClient] = useState(false);
+  const [activeTooltipRow, setActiveTooltipRow] = useState(null);
+  const [activeTooltipPosition, setActiveTooltipPosition] = useState('below');
 
   // Generate 6 months for report
   const months = useMemo(() => {
@@ -109,6 +111,13 @@ export default function Reports({ people, clients, projects, assignments, onBack
     });
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [sortedProjectRows]);
+
+  const handleTooltipEnter = (event, rowId) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const viewportMid = window.innerHeight / 2;
+    setActiveTooltipPosition(rect.top > viewportMid ? 'above' : 'below');
+    setActiveTooltipRow(rowId);
+  };
 
   // Export to XLSX
   const handleExport = () => {
@@ -371,13 +380,19 @@ export default function Reports({ people, clients, projects, assignments, onBack
                         {row.client?.name || 'Unknown'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="report-tooltip-wrapper">
+                        <span
+                          className="report-tooltip-wrapper"
+                          onMouseEnter={(event) => handleTooltipEnter(event, row.project.id)}
+                          onMouseLeave={() => setActiveTooltipRow(null)}
+                        >
                           {row.peopleCount}
-                          <span className="report-tooltip">
-                            {row.peopleNames.length
-                              ? row.peopleNames.join(', ')
-                              : 'No assignments'}
-                          </span>
+                          {activeTooltipRow === row.project.id && (
+                            <span className={`report-tooltip ${activeTooltipPosition}`}>
+                              {row.peopleNames.length
+                                ? row.peopleNames.join(', ')
+                                : 'No assignments'}
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -406,11 +421,17 @@ export default function Reports({ people, clients, projects, assignments, onBack
                         {row.client?.name || 'Unknown'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="report-tooltip-wrapper">
+                        <span
+                          className="report-tooltip-wrapper"
+                          onMouseEnter={(event) => handleTooltipEnter(event, row.project.id)}
+                          onMouseLeave={() => setActiveTooltipRow(null)}
+                        >
                           {row.peopleCount}
-                          <span className="report-tooltip">
-                            {row.peopleNames.length ? row.peopleNames.join(', ') : 'No assignments'}
-                          </span>
+                          {activeTooltipRow === row.project.id && (
+                            <span className={`report-tooltip ${activeTooltipPosition}`}>
+                              {row.peopleNames.length ? row.peopleNames.join(', ') : 'No assignments'}
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
