@@ -105,7 +105,10 @@ class BaseRepository:
                     bindparam("id", None, type_=Integer, isoutparam=True)
                 )
                 result = conn.execute(statement, dict(parameters))
-                return int(result.out_parameters["id"])
+                out_value = result.out_parameters["id"]
+                if isinstance(out_value, (list, tuple)):
+                    out_value = out_value[0] if out_value else None
+                return int(out_value)
             statement = text(f"{query} RETURNING id")
             result = conn.execute(statement, dict(parameters))
             return int(result.scalar_one())
