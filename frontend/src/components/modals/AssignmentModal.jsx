@@ -13,15 +13,15 @@ import { splitAssignmentByMonth } from '../../utils/assignmentUtils';
  *   preselectedProjectId: number - optional project to preselect
  *   prefilledDates: object - optional {start_date, end_date} to prefill
  */
-export default function AssignmentModal({ 
-  isOpen, 
-  onClose, 
+export default function AssignmentModal({
+  isOpen,
+  onClose,
   assignment = null,
   preselectedPersonId = null,
   preselectedProjectId = null,
   prefilledDates = null
 }) {
-  const { people, projects, clients, addAssignment, deleteAssignment, assignments } = useApp();
+  const { people, projects, clients, addAssignment, updateAssignment, assignments } = useApp();
   
   const [formData, setFormData] = useState({
     person_id: '',
@@ -221,31 +221,14 @@ export default function AssignmentModal({
       console.log('💾 Percentage conversion:', formData.percentage, '→', parseInt(formData.percentage));
       
       if (assignment) {
-        // EDIT MODE: Delete old assignment and create new one(s)
-        // This is necessary because we split multi-month assignments
-        console.log('✏️ Edit mode - Deleting old assignment:', assignment.id);
-        
-        // Delete the old assignment
-        await deleteAssignment(assignment.id);
-        
-        console.log('✅ Old assignment deleted');
-        
-        // Create new assignment(s) with updated values
-        const entries = splitAssignmentByMonth(assignmentData);
-        console.log('📦 Creating new entries:', entries.length);
-        
-        for (const entry of entries) {
-          console.log('➕ Creating entry:', entry);
-          await addAssignment(entry);
-        }
-        
-        console.log('✅ All entries created');
+        // EDIT MODE: Update the existing assignment
+        await updateAssignment(assignment.id, assignmentData);
       } else {
         // CREATE MODE: Split multi-month assignments into one entry per month
         // Example: Jan 15 - Mar 20 becomes 3 separate entries (Jan, Feb, Mar)
         console.log('➕ Create mode');
         const entries = splitAssignmentByMonth(assignmentData);
-        
+
         // Create each entry separately
         for (const entry of entries) {
           await addAssignment(entry);

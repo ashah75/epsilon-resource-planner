@@ -1,5 +1,6 @@
 // App Context for Resource Planner
 import { createContext, useContext, useState, useEffect } from 'react';
+import { getPeriodDates, parseDateString } from '../utils/dates';
 import api from '../services/api';
 
 const AppContext = createContext();
@@ -139,6 +140,20 @@ export function AppProvider({ children }) {
     setAssignments([...assignments, newAssignment]);
     return newAssignment;
   }
+
+  async function updateAssignment(id, assignment) {
+    const result = await api.updateAssignment(id, assignment);
+    const updatedAssignment = {
+      id: result.id,
+      personId: result.personId,
+      projectId: result.projectId,
+      startDate: result.startDate,
+      endDate: result.endDate,
+      percentage: result.percentage ?? assignment.percentage ?? 100
+    };
+    setAssignments(assignments.map(a => (a.id === id ? updatedAssignment : a)));
+    return updatedAssignment;
+  }
   
   async function deleteAssignment(id) {
     await api.deleteAssignment(id);
@@ -200,14 +215,28 @@ export function AppProvider({ children }) {
   
   async function bulkUploadAssignments(assignmentsData) {
     const result = await api.bulkUploadAssignments(assignmentsData);
-    setAssignments([...assignments, ...result.added.map(a => ({
+    const addedAssignments = result.added.map(a => ({
       id: a.id,
       personId: a.personId,
       projectId: a.projectId,
       startDate: a.startDate,
       endDate: a.endDate,
       percentage: a.percentage
-    }))]);
+    }));
+    const combinedAssignments = [...assignments, ...addedAssignments];
+    setAssignments(combinedAssignments);
+
+    if (combinedAssignments.length > 0) {
+      const earliestStart = combinedAssignments.reduce((earliest, assignment) => {
+        const start = parseDateString(assignment.startDate);
+        return start < earliest ? start : earliest;
+      }, parseDateString(combinedAssignments[0].startDate));
+      const currentStart = getPeriodDates(currentPeriodOffset).startDate;
+      if (earliestStart < currentStart) {
+        const offset = (earliestStart.getFullYear() - 2026) * 12 + earliestStart.getMonth();
+        setCurrentPeriodOffset(offset);
+      }
+    }
     return result;
   }
   
@@ -240,6 +269,7 @@ export function AppProvider({ children }) {
     updateProject,
     deleteProject,
     addAssignment,
+    updateAssignment,
     deleteAssignment,
     moveAssignment,
     bulkUploadPeople,
