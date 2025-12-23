@@ -54,6 +54,10 @@ function AppContent() {
       alert('Failed to export: ' + error.message);
     }
   };
+
+  const handleImport = () => {
+    openModal('upload');
+  };
   
   const handleAddAssignment = (personId = null, startDate = null, endDate = null, projectId = null) => {
     setPreselectedPersonId(personId);
@@ -106,6 +110,7 @@ function AppContent() {
     <div className="app-shell">
       <Header
         openModal={openModal}
+        onImport={handleImport}
         onExport={handleExport}
         onToggleReports={toggleReports}
         showReports={showReports}

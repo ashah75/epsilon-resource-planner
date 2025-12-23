@@ -66,7 +66,7 @@ function IconBadge({ type, label }) {
   );
 }
 
-export default function Header({ openModal, onExport, onToggleReports, showReports }) {
+export default function Header({ openModal, onImport, onExport, onToggleReports, showReports }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -133,6 +133,13 @@ export default function Header({ openModal, onExport, onToggleReports, showRepor
                 </button>
               </div>
             )}
+          </li>
+
+          <li className="nav-item" role="none">
+            <button type="button" className="nav-link" onClick={onImport} role="menuitem">
+              <IconBadge type="upload" label="Import" />
+              <span className="nav-label">Import</span>
+            </button>
           </li>
 
           <li className="nav-item" role="none">
