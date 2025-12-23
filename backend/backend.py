@@ -574,11 +574,17 @@ class ResourcePlannerAPI:
         except (TypeError, ValueError):
             abort(400, description="Assignment percentage must be a number")
 
+        def _normalize_date(value: str) -> str:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+            except ValueError:
+                abort(400, description="Dates must be in YYYY-MM-DD format")
+
         return {
             "personId": person_id,
             "projectId": project_id,
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": _normalize_date(start_date),
+            "endDate": _normalize_date(end_date),
             "percentage": percentage,
         }
 
