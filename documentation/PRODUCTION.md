@@ -68,6 +68,12 @@ uwsgi --ini uwsgi.ini
 ```
 The default `backend/uwsgi.ini` binds to `127.0.0.1:8000`.
 
+### 3a) Initialize the Oracle schema (required)
+The backend does **not** auto-create tables for Oracle. Run the schema script once:
+```bash
+sqlplus user/password@//host:1521/ORCLPDB1 @documentation/oracle-schema.sql
+```
+
 ### 4) Configure and start Nginx
 Copy or symlink the config:
 ```bash
