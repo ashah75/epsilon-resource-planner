@@ -13,13 +13,13 @@ from __future__ import annotations
 import logging
 import os
 import re
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
+from sqlalchemy import create_engine, text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,23 +30,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _resolve_sqlite_path(db_url: str) -> str:
-    """Return a filesystem path for a SQLite URL or raw path."""
-
-    if db_url.startswith("sqlite:///"):
-        return db_url.replace("sqlite:///", "", 1)
-    return db_url
-
-
 @dataclass(frozen=True)
 class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
-    sqlite_url: str = os.environ.get("DATABASE_URL", "sqlite:///resource_planner.db")
+    database_url: str = os.environ.get("DATABASE_URL", "sqlite:///resource_planner.db")
 
     @property
-    def sqlite_path(self) -> str:
-        return _resolve_sqlite_path(self.sqlite_url)
+    def is_sqlite(self) -> bool:
+        return self.database_url.startswith("sqlite")
 
 
 # ---------------------------------------------------------------------------
@@ -57,29 +49,23 @@ class DatabaseConfig:
 class ConnectionProvider(Protocol):
     """Protocol for obtaining database connections."""
 
-    def get_connection(self) -> sqlite3.Connection:
+    def get_connection(self):
         ...
 
 
-class SQLiteConnectionProvider:
-    """Create SQLite connections with secure defaults."""
+class SQLAlchemyConnectionProvider:
+    """Create SQLAlchemy connections with secure defaults."""
 
     def __init__(self, config: DatabaseConfig) -> None:
         self._config = config
+        self._engine = create_engine(self._config.database_url, pool_pre_ping=True, future=True)
 
-    def get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(
-            self._config.sqlite_path, detect_types=sqlite3.PARSE_DECLTYPES
-        )
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    def get_connection(self):
+        return self._engine.begin()
 
 
 def create_db_connection(connection_url: str):
     """Create a connection to a relational database using SQLAlchemy URLs."""
-
-    from sqlalchemy import create_engine
 
     engine = create_engine(connection_url, pool_pre_ping=True, future=True)
     return engine.connect()
@@ -96,16 +82,17 @@ class BaseRepository:
     def __init__(self, connection_provider: ConnectionProvider) -> None:
         self._connection_provider = connection_provider
 
-    def _execute(self, query: str, parameters: Sequence[Any] = ()):
+    def _execute(self, query: str, parameters: Mapping[str, Any] | None = None):
         with self._connection_provider.get_connection() as conn:
-            return conn.execute(query, parameters)
+            return conn.execute(text(query), parameters or {})
 
-    def _fetchall(self, query: str, parameters: Sequence[Any] = ()) -> List[Dict[str, Any]]:
-        rows = self._execute(query, parameters).fetchall()
-        return [dict(row) for row in rows]
+    def _fetchall(self, query: str, parameters: Mapping[str, Any] | None = None) -> List[Dict[str, Any]]:
+        result = self._execute(query, parameters)
+        return [dict(row) for row in result.mappings().all()]
 
-    def _fetchone(self, query: str, parameters: Sequence[Any] = ()) -> Dict[str, Any] | None:
-        row = self._execute(query, parameters).fetchone()
+    def _fetchone(self, query: str, parameters: Mapping[str, Any] | None = None) -> Dict[str, Any] | None:
+        result = self._execute(query, parameters)
+        row = result.mappings().first()
         return dict(row) if row else None
 
 
@@ -114,19 +101,30 @@ class PeopleRepository(BaseRepository):
         return self._fetchall("SELECT * FROM people")
 
     def create(self, name: str, role: str) -> int:
-        cursor = self._execute("INSERT INTO people (name, role) VALUES (?, ?)", (name, role))
-        return cursor.lastrowid
+        result = self._execute(
+            "INSERT INTO people (name, role) VALUES (:name, :role) RETURNING id",
+            {"name": name, "role": role},
+        )
+        return int(result.scalar_one())
 
     def delete(self, person_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            conn.execute("DELETE FROM assignments WHERE person_id = ?", (person_id,))
-            conn.execute("DELETE FROM people WHERE id = ?", (person_id,))
+            conn.execute(
+                text("DELETE FROM assignments WHERE person_id = :person_id"),
+                {"person_id": person_id},
+            )
+            conn.execute(text("DELETE FROM people WHERE id = :person_id"), {"person_id": person_id})
 
     def update(self, person_id: int, name: str, role: str) -> None:
-        self._execute("UPDATE people SET name = ?, role = ? WHERE id = ?", (name, role, person_id))
+        self._execute(
+            "UPDATE people SET name = :name, role = :role WHERE id = :person_id",
+            {"name": name, "role": role, "person_id": person_id},
+        )
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM people WHERE LOWER(name) = LOWER(?)", (name,))
+        row = self._fetchone(
+            "SELECT id FROM people WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
         return row["id"] if row else None
 
 
@@ -135,23 +133,39 @@ class ClientsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM clients")
 
     def create(self, name: str) -> int:
-        cursor = self._execute("INSERT INTO clients (name) VALUES (?)", (name,))
-        return cursor.lastrowid
+        result = self._execute(
+            "INSERT INTO clients (name) VALUES (:name) RETURNING id", {"name": name}
+        )
+        return int(result.scalar_one())
 
     def delete(self, client_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            projects = conn.execute("SELECT id FROM projects WHERE client_id = ?", (client_id,)).fetchall()
+            projects = conn.execute(
+                text("SELECT id FROM projects WHERE client_id = :client_id"),
+                {"client_id": client_id},
+            ).mappings().all()
             project_ids = [project["id"] for project in projects]
             for project_id in project_ids:
-                conn.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE client_id = ?", (client_id,))
-            conn.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+                conn.execute(
+                    text("DELETE FROM assignments WHERE project_id = :project_id"),
+                    {"project_id": project_id},
+                )
+            conn.execute(
+                text("DELETE FROM projects WHERE client_id = :client_id"),
+                {"client_id": client_id},
+            )
+            conn.execute(text("DELETE FROM clients WHERE id = :client_id"), {"client_id": client_id})
 
     def update(self, client_id: int, name: str) -> None:
-        self._execute("UPDATE clients SET name = ? WHERE id = ?", (name, client_id))
+        self._execute(
+            "UPDATE clients SET name = :name WHERE id = :client_id",
+            {"name": name, "client_id": client_id},
+        )
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM clients WHERE LOWER(name) = LOWER(?)", (name,))
+        row = self._fetchone(
+            "SELECT id FROM clients WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
         return row["id"] if row else None
 
 
@@ -160,30 +174,36 @@ class ProjectsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM projects")
 
     def create(self, name: str, client_id: int) -> int:
-        cursor = self._execute(
-            "INSERT INTO projects (name, client_id) VALUES (?, ?)", (name, client_id)
+        result = self._execute(
+            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id) RETURNING id",
+            {"name": name, "client_id": client_id},
         )
-        return cursor.lastrowid
+        return int(result.scalar_one())
 
     def delete(self, project_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
-            conn.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            conn.execute(
+                text("DELETE FROM assignments WHERE project_id = :project_id"),
+                {"project_id": project_id},
+            )
+            conn.execute(text("DELETE FROM projects WHERE id = :project_id"), {"project_id": project_id})
 
     def update(self, project_id: int, name: str, client_id: int) -> None:
         self._execute(
-            "UPDATE projects SET name = ?, client_id = ? WHERE id = ?",
-            (name, client_id, project_id),
+            "UPDATE projects SET name = :name, client_id = :client_id WHERE id = :project_id",
+            {"name": name, "client_id": client_id, "project_id": project_id},
         )
 
     def get_id_by_name(self, name: str) -> int | None:
-        row = self._fetchone("SELECT id FROM projects WHERE LOWER(name) = LOWER(?)", (name,))
+        row = self._fetchone(
+            "SELECT id FROM projects WHERE LOWER(name) = LOWER(:name)", {"name": name}
+        )
         return row["id"] if row else None
 
     def get_id_by_name_and_client(self, name: str, client_id: int) -> int | None:
         row = self._fetchone(
-            "SELECT id FROM projects WHERE LOWER(name) = LOWER(?) AND client_id = ?",
-            (name, client_id),
+            "SELECT id FROM projects WHERE LOWER(name) = LOWER(:name) AND client_id = :client_id",
+            {"name": name, "client_id": client_id},
         )
         return row["id"] if row else None
 
@@ -200,14 +220,21 @@ class AssignmentsRepository(BaseRepository):
         end_date: str,
         percentage: int,
     ) -> int:
-        cursor = self._execute(
+        result = self._execute(
             """
             INSERT INTO assignments (person_id, project_id, start_date, end_date, percentage)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (:person_id, :project_id, :start_date, :end_date, :percentage)
+            RETURNING id
             """,
-            (person_id, project_id, start_date, end_date, percentage),
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "percentage": percentage,
+            },
         )
-        return cursor.lastrowid
+        return int(result.scalar_one())
 
     def find_existing(
         self, person_id: int, project_id: int, start_date: str, end_date: str
@@ -215,14 +242,24 @@ class AssignmentsRepository(BaseRepository):
         row = self._fetchone(
             """
             SELECT id FROM assignments
-            WHERE person_id = ? AND project_id = ? AND start_date = ? AND end_date = ?
+            WHERE person_id = :person_id
+              AND project_id = :project_id
+              AND start_date = :start_date
+              AND end_date = :end_date
             """,
-            (person_id, project_id, start_date, end_date),
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
         )
         return row["id"] if row else None
 
     def delete(self, assignment_id: int) -> None:
-        self._execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
+        self._execute(
+            "DELETE FROM assignments WHERE id = :assignment_id", {"assignment_id": assignment_id}
+        )
 
     def update(
         self,
@@ -236,10 +273,21 @@ class AssignmentsRepository(BaseRepository):
         self._execute(
             """
             UPDATE assignments
-            SET person_id = ?, project_id = ?, start_date = ?, end_date = ?, percentage = ?
-            WHERE id = ?
+            SET person_id = :person_id,
+                project_id = :project_id,
+                start_date = :start_date,
+                end_date = :end_date,
+                percentage = :percentage
+            WHERE id = :assignment_id
             """,
-            (person_id, project_id, start_date, end_date, percentage, assignment_id),
+            {
+                "person_id": person_id,
+                "project_id": project_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "percentage": percentage,
+                "assignment_id": assignment_id,
+            },
         )
 
 
@@ -419,45 +467,55 @@ class BulkUploadService:
 class DatabaseInitializer:
     """Handle creation of database schema."""
 
-    def __init__(self, connection_provider: ConnectionProvider) -> None:
+    def __init__(self, connection_provider: ConnectionProvider, config: DatabaseConfig) -> None:
         self._connection_provider = connection_provider
+        self._config = config
 
     def initialize(self) -> None:
+        if not self._config.is_sqlite:
+            logger.info("Skipping schema initialization for non-SQLite database.")
+            return
+
+        schema = """
+        PRAGMA foreign_keys = ON;
+
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            client_id INTEGER NOT NULL,
+            FOREIGN KEY (client_id) REFERENCES clients(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            percentage INTEGER DEFAULT 100,
+            FOREIGN KEY (person_id) REFERENCES people(id),
+            FOREIGN KEY (project_id) REFERENCES projects(id)
+        );
+        """
         with self._connection_provider.get_connection() as conn:
-            conn.executescript(
-                """
-                PRAGMA foreign_keys = ON;
-
-                CREATE TABLE IF NOT EXISTS people (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    role TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS clients (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS projects (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    client_id INTEGER NOT NULL,
-                    FOREIGN KEY (client_id) REFERENCES clients(id)
-                );
-
-                CREATE TABLE IF NOT EXISTS assignments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    person_id INTEGER NOT NULL,
-                    project_id INTEGER NOT NULL,
-                    start_date TEXT NOT NULL,
-                    end_date TEXT NOT NULL,
-                    percentage INTEGER DEFAULT 100,
-                    FOREIGN KEY (person_id) REFERENCES people(id),
-                    FOREIGN KEY (project_id) REFERENCES projects(id)
-                );
-                """
-            )
+            raw = getattr(conn, "connection", None)
+            if raw and hasattr(raw, "executescript"):
+                raw.executescript(schema)
+            else:
+                for statement in schema.split(";"):
+                    if statement.strip():
+                        conn.execute(text(statement))
 
 
 # ---------------------------------------------------------------------------
@@ -471,8 +529,8 @@ class ResourcePlannerAPI:
         self.app = Flask(__name__)
         CORS(self.app)
 
-        self.connection_provider = SQLiteConnectionProvider(config)
-        self.db_initializer = DatabaseInitializer(self.connection_provider)
+        self.connection_provider = SQLAlchemyConnectionProvider(config)
+        self.db_initializer = DatabaseInitializer(self.connection_provider, config)
 
         self.people_repo = PeopleRepository(self.connection_provider)
         self.clients_repo = ClientsRepository(self.connection_provider)
@@ -763,10 +821,10 @@ class ResourcePlannerAPI:
         @app.route("/api/clear-all", methods=["POST"])
         def clear_all():
             with self.connection_provider.get_connection() as conn:
-                conn.execute("DELETE FROM assignments")
-                conn.execute("DELETE FROM projects")
-                conn.execute("DELETE FROM clients")
-                conn.execute("DELETE FROM people")
+                conn.execute(text("DELETE FROM assignments"))
+                conn.execute(text("DELETE FROM projects"))
+                conn.execute(text("DELETE FROM clients"))
+                conn.execute(text("DELETE FROM people"))
             return jsonify({"success": True}), 200
 
         @app.route("/api/health", methods=["GET"])
@@ -775,14 +833,16 @@ class ResourcePlannerAPI:
 
     # ---------------------------- Lifecycle ---------------------------------
     def init_database(self) -> None:
-        logger.info("Initializing database at %s", self.config.sqlite_path)
+        logger.info("Initializing database at %s", self.config.database_url)
         self.db_initializer.initialize()
 
     def run(self) -> None:
+        host = os.environ.get("BACKEND_HOST", "127.0.0.1")
+        port = int(os.environ.get("BACKEND_PORT", "8000"))
         logger.info("🚀 Backend server starting...")
-        logger.info("📊 Database: SQLite (%s)", self.config.sqlite_path)
-        logger.info("🌐 API running on: http://localhost:5000")
-        self.app.run(debug=False, host="0.0.0.0", port=5000)
+        logger.info("📊 Database: %s", self.config.database_url)
+        logger.info("🌐 API running on: http://%s:%s", host, port)
+        self.app.run(debug=False, host=host, port=port)
 
 
 config = DatabaseConfig()

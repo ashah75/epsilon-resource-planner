@@ -105,8 +105,8 @@ echo "==============================================================="
 echo "                     SERVERS STARTING"
 echo "==============================================================="
 echo
-echo "  Backend:  http://localhost:5000 (running in background, PID: $BACKEND_PID)"
-echo "  Frontend: http://localhost:3000 (opening now...)"
+echo "  Backend:  http://${BACKEND_HOST:-127.0.0.1}:${BACKEND_PORT:-8000} (running in background, PID: $BACKEND_PID)"
+echo "  Frontend: http://${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-4173} (opening now...)"
 echo
 echo "  Press Ctrl+C to stop the frontend dev server."
 echo "  Backend will stop when this shell exits (or kill PID $BACKEND_PID)."
@@ -115,8 +115,8 @@ echo "==============================================================="
 echo
 
 # Open frontend URL in default browser
-open_url "http://localhost:3000"
+open_url "http://${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-4173}"
 
 # Start frontend dev server in foreground
 cd "$SCRIPT_DIR/frontend"
-npm run dev
+npm run dev -- --host "${FRONTEND_HOST:-127.0.0.1}" --port "${FRONTEND_PORT:-4173}"

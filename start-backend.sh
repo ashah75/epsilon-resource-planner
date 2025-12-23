@@ -2,8 +2,8 @@
 
 echo "🚀 Starting Resource Planner Backend..."
 echo ""
-echo "📊 Database: SQLite (resource_planner.db)"
-echo "🌐 API will be available at: http://localhost:5000"
+echo "📊 Database: ${DATABASE_URL:-sqlite:///resource_planner.db}"
+echo "🌐 API will be available at: http://${BACKEND_HOST:-127.0.0.1}:${BACKEND_PORT:-8000}"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
