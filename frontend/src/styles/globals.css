@@ -945,7 +945,7 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
   color: var(--text-primary);
   font-size: 0.75rem;
-  opacity: 0;
+  opacity: 1;
   pointer-events: none;
   transition: opacity 0.15s ease;
   z-index: 20;
