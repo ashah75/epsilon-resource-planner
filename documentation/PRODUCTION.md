@@ -95,6 +95,57 @@ sudo systemctl reload apache2
 - Frontend: `https://your-domain/`
 - Backend API: `https://your-domain/api/health`
 
+## Windows local Apache HTTPS (no uWSGI)
+If you are running locally on Windows and want Apache HTTPS with mTLS (no uWSGI), use Apache HTTP Server 2.4.x and run the Flask backend directly.
+
+### 1) Install Apache as a Windows service
+From an elevated PowerShell in your Apache `bin` folder:
+```powershell
+.\httpd.exe -k install -n "Apache2.4"
+```
+If you already installed Apache with a different service name, list it:
+```powershell
+sc query | Select-String -Pattern "Apache"
+```
+Start the service:
+```powershell
+net start "Apache2.4"
+```
+If you see `AH00436: No installed service named "Apache2.4"`, the service has not been installed yet—run the install command above first.
+
+### 2) Configure Apache HTTPS + mTLS
+Edit `apache/epsilon-resource-planner.conf` for Windows paths:
+- `ServerName` (e.g., `resource-planner.local`)
+- `DocumentRoot` (absolute path to `frontend/dist`)
+- `SSLCertificateFile`, `SSLCertificateKeyFile`
+- `SSLCACertificateFile` (client CA for mTLS)
+- `ProxyPass /api/` → `http://127.0.0.1:8000/api/`
+
+Ensure your `httpd.conf` includes the SSL module and the vhost config:
+```
+LoadModule ssl_module modules/mod_ssl.so
+Include conf/extra/epsilon-resource-planner.conf
+```
+
+### 3) Run the backend directly (no uWSGI)
+```powershell
+cd backend
+python backend.py
+```
+This binds to `127.0.0.1:8000` by default (`BACKEND_HOST`/`BACKEND_PORT` env vars override it).
+
+### 4) Trust your local certs and verify
+- Add a hosts entry:
+  ```
+  127.0.0.1 resource-planner.local
+  ```
+- Restart Apache after config changes:
+  ```powershell
+  .\httpd.exe -k restart -n "Apache2.4"
+  ```
+- Visit: `https://resource-planner.local/`
+- API check: `https://resource-planner.local/api/health`
+
 ## Security Controls
 
 ### Mutual TLS (mTLS)
