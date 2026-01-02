@@ -139,6 +139,12 @@ body {
   padding: 1rem;
 }
 
+.report-grid-scroll {
+  max-height: 60vh;
+  overflow: auto;
+  padding-bottom: 0.5rem;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -1249,12 +1255,12 @@ body {
   border-top-color: var(--bg-primary);
 }
 
-.timeline-grid > .grid-row:nth-of-type(2) .assignment-tooltip {
+.assignment-tooltip.below {
   bottom: auto;
   top: calc(100% + 0.5rem);
 }
 
-.timeline-grid > .grid-row:nth-of-type(2) .assignment-tooltip::after {
+.assignment-tooltip.below::after {
   top: -12px;
   border-top-color: transparent;
   border-bottom-color: var(--bg-primary);
