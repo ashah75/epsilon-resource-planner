@@ -497,7 +497,12 @@ class ResourcePlannerAPI:
     def __init__(self, config: DatabaseConfig) -> None:
         self.config = config
         self.app = Flask(__name__)
-        CORS(self.app)
+        allowed_origins = [
+            origin.strip()
+            for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:4173").split(",")
+            if origin.strip()
+        ]
+        CORS(self.app, resources={r"/api/*": {"origins": allowed_origins}})
 
         self.connection_provider = SQLAlchemyConnectionProvider(config)
         self.db_initializer = DatabaseInitializer(self.connection_provider, config)

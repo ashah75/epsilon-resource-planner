@@ -5,7 +5,7 @@ This guide explains how to run and configure the application with the production
 ## Components
 - **Backend**: Flask app served by **uWSGI** (`backend/wsgi.py`, `backend/uwsgi.ini`).
 - **Frontend**: React app built to static assets (`frontend/dist`).
-- **Reverse Proxy**: **Nginx** serves the React build and proxies `/api` to the backend.
+- **Reverse Proxy**: **Apache HTTPS** serves the React build and proxies `/api` to the backend.
 
 ## Configuration (customizable URLs)
 You can configure the backend, frontend, and Nginx URLs with environment variables or config files.
@@ -34,11 +34,15 @@ If you want to customize the frontend host/port for local dev:
 
 These are used by `start_script.sh` when launching `npm run dev`.
 
-### Nginx
-Edit `nginx/epsilon-resource-planner.conf`:
-- `server_name` — set your public hostname (e.g., `planner.example.com`).
-- `root` — path to your built frontend (`/var/www/epsilon-resource-planner/frontend/dist`).
-- `proxy_pass` — backend upstream (default `http://127.0.0.1:8000`).
+### Apache HTTPS
+Edit `apache/epsilon-resource-planner.conf`:
+- `ServerName` — set your public hostname (e.g., `planner.example.com`).
+- `DocumentRoot` — path to your built frontend (`/var/www/epsilon-resource-planner/frontend/dist`).
+- `ProxyPass` — backend upstream (default `http://127.0.0.1:8000`).
+- `SSLCertificateFile` / `SSLCertificateKeyFile` — server certificate paths.
+- `SSLCACertificateFile` — client CA for mTLS.
+
+**Required Apache modules**: `ssl`, `proxy`, `proxy_http`, `rewrite`, `headers`, `ratelimit`.
 
 ## Production Setup Steps
 
@@ -74,20 +78,42 @@ The backend does **not** auto-create tables for Oracle. Run the schema script on
 sqlplus user/password@//host:1521/ORCLPDB1 @documentation/oracle-schema.sql
 ```
 
-### 4) Configure and start Nginx
+### 4) Configure and start Apache
 Copy or symlink the config:
 ```bash
-sudo cp nginx/epsilon-resource-planner.conf /etc/nginx/conf.d/epsilon-resource-planner.conf
+sudo cp apache/epsilon-resource-planner.conf /etc/apache2/sites-available/epsilon-resource-planner.conf
+sudo a2ensite epsilon-resource-planner
+sudo a2enmod ssl proxy proxy_http rewrite headers ratelimit
 ```
-Reload Nginx:
+Reload Apache:
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
+sudo apachectl configtest
+sudo systemctl reload apache2
 ```
 
 ### 5) Verify
-- Frontend: `http://your-domain/`
-- Backend API: `http://your-domain/api/health`
+- Frontend: `https://your-domain/`
+- Backend API: `https://your-domain/api/health`
+
+## Security Controls
+
+### Mutual TLS (mTLS)
+Enabled in `apache/epsilon-resource-planner.conf`:
+- `SSLVerifyClient require`
+- `SSLCACertificateFile` points to the client CA that signed client certificates.
+
+### Rate limiting and throttling
+Use Apache `mod_ratelimit` to cap bandwidth per connection:
+- `SetOutputFilter RATE_LIMIT`
+- `SetEnv rate-limit 400` (KB/s). Adjust to your needs.
+
+For request-rate throttling, consider `mod_evasive` or `mod_security` at the Apache layer.
+
+### CORS restriction
+The backend reads `ALLOWED_ORIGINS` (comma-separated) to restrict CORS:
+```bash
+export ALLOWED_ORIGINS="https://resource-planner.example.com"
+```
 
 ## Notes
 - For Oracle, install an Oracle DB driver compatible with SQLAlchemy (e.g., `oracledb`).
