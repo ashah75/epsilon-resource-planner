@@ -117,9 +117,16 @@ If you see `AH00436: No installed service named "Apache2.4"`, the service has no
 Edit `apache/epsilon-resource-planner.conf` for Windows paths:
 - `ServerName` (e.g., `resource-planner.local`)
 - `DocumentRoot` (absolute path to `frontend/dist`)
-- `SSLCertificateFile`, `SSLCertificateKeyFile`
-- `SSLCACertificateFile` (client CA for mTLS)
+- `SSLCertificateFile`, `SSLCertificateKeyFile` (ensure the files exist)
+- `SSLCACertificateFile` (client CA for mTLS; ensure the file exists)
 - `ProxyPass /api/` → `http://127.0.0.1:8000/api/`
+
+If you use the default paths in the repo config, place certs at:
+```
+%APACHE_HOME%\conf\certs\resource-planner.crt
+%APACHE_HOME%\conf\certs\resource-planner.key
+%APACHE_HOME%\conf\certs\client-ca.crt
+```
 
 Ensure your `httpd.conf` includes the SSL module and the vhost config:
 ```
