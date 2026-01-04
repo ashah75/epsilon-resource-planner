@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
-    database_url: str = os.environ.get("DATABASE_URL", "")
+    database_url: str = os.environ.get("DATABASE_URL", "oracle+oracledb://admin:admin@127.0.0.1:1521/?service_name=orclpdb")
 
     def __post_init__(self) -> None:
         if not self.database_url:
@@ -499,7 +499,7 @@ class ResourcePlannerAPI:
         self.app = Flask(__name__)
         allowed_origins = [
             origin.strip()
-            for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:4173").split(",")
+            for origin in os.environ.get("ALLOWED_ORIGINS", "").split(",")
             if origin.strip()
         ]
         CORS(self.app, resources={r"/api/*": {"origins": allowed_origins}})
