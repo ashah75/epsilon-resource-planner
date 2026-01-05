@@ -14,12 +14,12 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
-from sqlalchemy import create_engine, text
+from sqlalchemy import Integer, bindparam, create_engine, text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,11 +34,13 @@ logger = logging.getLogger(__name__)
 class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
-    database_url: str = os.environ.get("DATABASE_URL", "sqlite:///resource_planner.db")
+    database_url: str = os.environ.get("DATABASE_URL", "")
 
-    @property
-    def is_sqlite(self) -> bool:
-        return self.database_url.startswith("sqlite")
+    def __post_init__(self) -> None:
+        if not self.database_url:
+            raise ValueError("DATABASE_URL is required and cannot be empty.")
+        if self.database_url.startswith("sqlite"):
+            raise ValueError("SQLite is not supported. Provide a SQL*Plus/Oracle DATABASE_URL.")
 
 
 # ---------------------------------------------------------------------------
@@ -95,17 +97,32 @@ class BaseRepository:
         row = result.mappings().first()
         return dict(row) if row else None
 
+    def _insert_returning_id(self, query: str, parameters: Mapping[str, Any]) -> int:
+        with self._connection_provider.get_connection() as conn:
+            if conn.dialect.name == "oracle":
+                oracle_query = f"{query} RETURNING id INTO :id"
+                statement = text(oracle_query).bindparams(
+                    bindparam("id", None, type_=Integer, isoutparam=True)
+                )
+                result = conn.execute(statement, dict(parameters))
+                out_value = result.out_parameters["id"]
+                if isinstance(out_value, (list, tuple)):
+                    out_value = out_value[0] if out_value else None
+                return int(out_value)
+            statement = text(f"{query} RETURNING id")
+            result = conn.execute(statement, dict(parameters))
+            return int(result.scalar_one())
+
 
 class PeopleRepository(BaseRepository):
     def list(self) -> List[Dict[str, Any]]:
         return self._fetchall("SELECT * FROM people")
 
     def create(self, name: str, role: str) -> int:
-        result = self._execute(
-            "INSERT INTO people (name, role) VALUES (:name, :role) RETURNING id",
+        return self._insert_returning_id(
+            "INSERT INTO people (name, role) VALUES (:name, :role)",
             {"name": name, "role": role},
         )
-        return int(result.scalar_one())
 
     def delete(self, person_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -133,10 +150,9 @@ class ClientsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM clients")
 
     def create(self, name: str) -> int:
-        result = self._execute(
-            "INSERT INTO clients (name) VALUES (:name) RETURNING id", {"name": name}
+        return self._insert_returning_id(
+            "INSERT INTO clients (name) VALUES (:name)", {"name": name}
         )
-        return int(result.scalar_one())
 
     def delete(self, client_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -174,11 +190,10 @@ class ProjectsRepository(BaseRepository):
         return self._fetchall("SELECT * FROM projects")
 
     def create(self, name: str, client_id: int) -> int:
-        result = self._execute(
-            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id) RETURNING id",
+        return self._insert_returning_id(
+            "INSERT INTO projects (name, client_id) VALUES (:name, :client_id)",
             {"name": name, "client_id": client_id},
         )
-        return int(result.scalar_one())
 
     def delete(self, project_id: int) -> None:
         with self._connection_provider.get_connection() as conn:
@@ -220,11 +235,10 @@ class AssignmentsRepository(BaseRepository):
         end_date: str,
         percentage: int,
     ) -> int:
-        result = self._execute(
+        return self._insert_returning_id(
             """
             INSERT INTO assignments (person_id, project_id, start_date, end_date, percentage)
             VALUES (:person_id, :project_id, :start_date, :end_date, :percentage)
-            RETURNING id
             """,
             {
                 "person_id": person_id,
@@ -234,7 +248,6 @@ class AssignmentsRepository(BaseRepository):
                 "percentage": percentage,
             },
         )
-        return int(result.scalar_one())
 
     def find_existing(
         self, person_id: int, project_id: int, start_date: str, end_date: str
@@ -472,50 +485,7 @@ class DatabaseInitializer:
         self._config = config
 
     def initialize(self) -> None:
-        if not self._config.is_sqlite:
-            logger.info("Skipping schema initialization for non-SQLite database.")
-            return
-
-        schema = """
-        PRAGMA foreign_keys = ON;
-
-        CREATE TABLE IF NOT EXISTS people (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            role TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            client_id INTEGER NOT NULL,
-            FOREIGN KEY (client_id) REFERENCES clients(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS assignments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person_id INTEGER NOT NULL,
-            project_id INTEGER NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT NOT NULL,
-            percentage INTEGER DEFAULT 100,
-            FOREIGN KEY (person_id) REFERENCES people(id),
-            FOREIGN KEY (project_id) REFERENCES projects(id)
-        );
-        """
-        with self._connection_provider.get_connection() as conn:
-            raw = getattr(conn, "connection", None)
-            if raw and hasattr(raw, "executescript"):
-                raw.executescript(schema)
-            else:
-                for statement in schema.split(";"):
-                    if statement.strip():
-                        conn.execute(text(statement))
+        logger.info("Schema initialization is disabled; ensure your SQL*Plus schema is applied.")
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +497,12 @@ class ResourcePlannerAPI:
     def __init__(self, config: DatabaseConfig) -> None:
         self.config = config
         self.app = Flask(__name__)
-        CORS(self.app)
+        allowed_origins = [
+            origin.strip()
+            for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:4173").split(",")
+            if origin.strip()
+        ]
+        CORS(self.app, resources={r"/api/*": {"origins": allowed_origins}})
 
         self.connection_provider = SQLAlchemyConnectionProvider(config)
         self.db_initializer = DatabaseInitializer(self.connection_provider, config)
@@ -604,12 +579,40 @@ class ResourcePlannerAPI:
         except (TypeError, ValueError):
             abort(400, description="Assignment percentage must be a number")
 
+        def _normalize_date(value: str) -> date:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d").date()
+            except ValueError:
+                abort(400, description="Dates must be in YYYY-MM-DD format")
+
         return {
             "personId": person_id,
             "projectId": project_id,
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": _normalize_date(start_date),
+            "endDate": _normalize_date(end_date),
             "percentage": percentage,
+        }
+
+    @staticmethod
+    def _serialize_date(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, str):
+            return value[:10]
+        return str(value)
+
+    def _serialize_assignment_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": row.get("id"),
+            "person_id": row.get("person_id"),
+            "project_id": row.get("project_id"),
+            "start_date": self._serialize_date(row.get("start_date")),
+            "end_date": self._serialize_date(row.get("end_date")),
+            "percentage": row.get("percentage"),
         }
 
     # ---------------------------- Routes ---------------------------------
@@ -618,6 +621,7 @@ class ResourcePlannerAPI:
 
         @app.route("/api/people", methods=["GET"])
         def get_people():
+            logger.info("Listing people")
             people = self.people_repo.list()
             return jsonify(people)
 
@@ -625,21 +629,25 @@ class ResourcePlannerAPI:
         def add_person():
             data = ValidationService.require_json({"name", "role"})
             person_id = self.people_repo.create(data["name"], data["role"])
+            logger.info("Created person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 201
 
         @app.route("/api/people/<int:person_id>", methods=["DELETE"])
         def delete_person(person_id: int):
             self.people_repo.delete(person_id)
+            logger.info("Deleted person id=%s", person_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/people/<int:person_id>", methods=["PUT"])
         def update_person(person_id: int):
             data = ValidationService.require_json({"name", "role"})
             self.people_repo.update(person_id, data["name"], data["role"])
+            logger.info("Updated person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 200
 
         @app.route("/api/clients", methods=["GET"])
         def get_clients():
+            logger.info("Listing clients")
             clients = self.clients_repo.list()
             return jsonify(clients)
 
@@ -647,21 +655,25 @@ class ResourcePlannerAPI:
         def add_client():
             data = ValidationService.require_json({"name"})
             client_id = self.clients_repo.create(data["name"])
+            logger.info("Created client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 201
 
         @app.route("/api/clients/<int:client_id>", methods=["DELETE"])
         def delete_client(client_id: int):
             self.clients_repo.delete(client_id)
+            logger.info("Deleted client id=%s", client_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/clients/<int:client_id>", methods=["PUT"])
         def update_client(client_id: int):
             data = ValidationService.require_json({"name"})
             self.clients_repo.update(client_id, data["name"])
+            logger.info("Updated client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 200
 
         @app.route("/api/projects", methods=["GET"])
         def get_projects():
+            logger.info("Listing projects")
             projects = self.projects_repo.list()
             return jsonify(projects)
 
@@ -669,22 +681,28 @@ class ResourcePlannerAPI:
         def add_project():
             data = ValidationService.require_json({"name", "clientId"})
             project_id = self.projects_repo.create(data["name"], data["clientId"])
+            logger.info("Created project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 201
 
         @app.route("/api/projects/<int:project_id>", methods=["DELETE"])
         def delete_project(project_id: int):
             self.projects_repo.delete(project_id)
+            logger.info("Deleted project id=%s", project_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/projects/<int:project_id>", methods=["PUT"])
         def update_project(project_id: int):
             data = ValidationService.require_json({"name", "clientId"})
             self.projects_repo.update(project_id, data["name"], data["clientId"])
+            logger.info("Updated project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 200
 
         @app.route("/api/assignments", methods=["GET"])
         def get_assignments():
-            assignments = self.assignments_repo.list()
+            logger.info("Listing assignments")
+            assignments = [
+                self._serialize_assignment_row(row) for row in self.assignments_repo.list()
+            ]
             return jsonify(assignments)
 
         @app.route("/api/assignments", methods=["POST"])
@@ -700,14 +718,15 @@ class ResourcePlannerAPI:
                 normalized["endDate"],
                 normalized["percentage"],
             )
+            logger.info("Created assignment id=%s", assignment_id)
             return (
                 jsonify(
                     {
                         "id": assignment_id,
                         "personId": normalized["personId"],
                         "projectId": normalized["projectId"],
-                        "startDate": normalized["startDate"],
-                        "endDate": normalized["endDate"],
+                        "startDate": normalized["startDate"].isoformat(),
+                        "endDate": normalized["endDate"].isoformat(),
                         "percentage": normalized["percentage"],
                     }
                 ),
@@ -716,31 +735,29 @@ class ResourcePlannerAPI:
 
         @app.route("/api/assignments/<int:assignment_id>", methods=["PUT"])
         def update_assignment(assignment_id: int):
-            data = ValidationService.require_json({"personId", "projectId"})
-            percentage = int(data.get("percentage", 100))
-
-            if "startDate" in data and "endDate" in data:
-                start_date = data["startDate"]
-                end_date = data["endDate"]
-            elif "period" in data:
-                dates = ValidationService.convert_period_to_dates(int(data["period"]))
-                start_date = dates["start"]
-                end_date = dates["end"]
-            else:
-                abort(400, description="Either startDate/endDate or period is required")
+            if not request.is_json:
+                abort(400, description="Request must be JSON")
+            data = request.get_json() or {}
+            normalized = self._normalize_assignment_payload(data)
 
             self.assignments_repo.update(
-                assignment_id, data["personId"], data["projectId"], start_date, end_date, percentage
+                assignment_id,
+                normalized["personId"],
+                normalized["projectId"],
+                normalized["startDate"],
+                normalized["endDate"],
+                normalized["percentage"],
             )
+            logger.info("Updated assignment id=%s", assignment_id)
             return (
                 jsonify(
                     {
                         "id": assignment_id,
-                        "personId": data["personId"],
-                        "projectId": data["projectId"],
-                        "startDate": start_date,
-                        "endDate": end_date,
-                        "percentage": percentage,
+                        "personId": normalized["personId"],
+                        "projectId": normalized["projectId"],
+                        "startDate": normalized["startDate"].isoformat(),
+                        "endDate": normalized["endDate"].isoformat(),
+                        "percentage": normalized["percentage"],
                     }
                 ),
                 200,
@@ -749,18 +766,21 @@ class ResourcePlannerAPI:
         @app.route("/api/assignments/<int:assignment_id>", methods=["DELETE"])
         def delete_assignment(assignment_id: int):
             self.assignments_repo.delete(assignment_id)
+            logger.info("Deleted assignment id=%s", assignment_id)
             return jsonify({"success": True}), 200
 
         @app.route("/api/bulk-upload/people", methods=["POST"])
         def bulk_upload_people():
             data = ValidationService.require_json({"people"})
             added = self.bulk_service.bulk_people(data["people"])
+            logger.info("Bulk uploaded %s people", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/clients", methods=["POST"])
         def bulk_upload_clients():
             data = ValidationService.require_json({"clients"})
             added = self.bulk_service.bulk_clients(data["clients"])
+            logger.info("Bulk uploaded %s clients", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/projects", methods=["POST"])
@@ -770,6 +790,7 @@ class ResourcePlannerAPI:
                 added = self.bulk_service.bulk_projects(data["projects"])
             except ValueError as exc:
                 abort(400, description=str(exc))
+            logger.info("Bulk uploaded %s projects", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/bulk-upload/assignments", methods=["POST"])
@@ -808,14 +829,15 @@ class ResourcePlannerAPI:
                             "id": assignment_id,
                             "personId": normalized["personId"],
                             "projectId": normalized["projectId"],
-                            "startDate": normalized["startDate"],
-                            "endDate": normalized["endDate"],
+                            "startDate": normalized["startDate"].isoformat(),
+                            "endDate": normalized["endDate"].isoformat(),
                             "percentage": normalized["percentage"],
                         }
                     )
             except Exception as exc:
                 logger.warning("Bulk upload assignments failed: %s", exc)
                 abort(400, description=str(exc))
+            logger.info("Bulk uploaded %s assignments", len(added))
             return jsonify({"added": added}), 201
 
         @app.route("/api/clear-all", methods=["POST"])
