@@ -15,15 +15,20 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from dotenv import load_dotenv
 from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence
 
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
+from pathlib import Path
 from sqlalchemy import Integer, bindparam, create_engine, text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).resolve().parent
+ENV_PATH = BASE_DIR / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=False)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -35,7 +40,7 @@ class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
     database_url: str = os.environ.get("DATABASE_URL", "")
-
+    print("DATABASE_URL set?:", bool(os.getenv("DATABASE_URL")))
     def __post_init__(self) -> None:
         if not self.database_url:
             raise ValueError("DATABASE_URL is required and cannot be empty.")
@@ -619,85 +624,85 @@ class ResourcePlannerAPI:
     def _register_routes(self) -> None:
         app = self.app
 
-        @app.route("/api/people", methods=["GET"])
+        @app.route("/people", methods=["GET"])
         def get_people():
             logger.info("Listing people")
             people = self.people_repo.list()
             return jsonify(people)
 
-        @app.route("/api/people", methods=["POST"])
+        @app.route("/people", methods=["POST"])
         def add_person():
             data = ValidationService.require_json({"name", "role"})
             person_id = self.people_repo.create(data["name"], data["role"])
             logger.info("Created person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 201
 
-        @app.route("/api/people/<int:person_id>", methods=["DELETE"])
+        @app.route("/people/<int:person_id>", methods=["DELETE"])
         def delete_person(person_id: int):
             self.people_repo.delete(person_id)
             logger.info("Deleted person id=%s", person_id)
             return jsonify({"success": True}), 200
 
-        @app.route("/api/people/<int:person_id>", methods=["PUT"])
+        @app.route("/people/<int:person_id>", methods=["PUT"])
         def update_person(person_id: int):
             data = ValidationService.require_json({"name", "role"})
             self.people_repo.update(person_id, data["name"], data["role"])
             logger.info("Updated person id=%s", person_id)
             return jsonify({"id": person_id, "name": data["name"], "role": data["role"]}), 200
 
-        @app.route("/api/clients", methods=["GET"])
+        @app.route("/clients", methods=["GET"])
         def get_clients():
             logger.info("Listing clients")
             clients = self.clients_repo.list()
             return jsonify(clients)
 
-        @app.route("/api/clients", methods=["POST"])
+        @app.route("/clients", methods=["POST"])
         def add_client():
             data = ValidationService.require_json({"name"})
             client_id = self.clients_repo.create(data["name"])
             logger.info("Created client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 201
 
-        @app.route("/api/clients/<int:client_id>", methods=["DELETE"])
+        @app.route("/clients/<int:client_id>", methods=["DELETE"])
         def delete_client(client_id: int):
             self.clients_repo.delete(client_id)
             logger.info("Deleted client id=%s", client_id)
             return jsonify({"success": True}), 200
 
-        @app.route("/api/clients/<int:client_id>", methods=["PUT"])
+        @app.route("/clients/<int:client_id>", methods=["PUT"])
         def update_client(client_id: int):
             data = ValidationService.require_json({"name"})
             self.clients_repo.update(client_id, data["name"])
             logger.info("Updated client id=%s", client_id)
             return jsonify({"id": client_id, "name": data["name"]}), 200
 
-        @app.route("/api/projects", methods=["GET"])
+        @app.route("/projects", methods=["GET"])
         def get_projects():
             logger.info("Listing projects")
             projects = self.projects_repo.list()
             return jsonify(projects)
 
-        @app.route("/api/projects", methods=["POST"])
+        @app.route("/projects", methods=["POST"])
         def add_project():
             data = ValidationService.require_json({"name", "clientId"})
             project_id = self.projects_repo.create(data["name"], data["clientId"])
             logger.info("Created project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 201
 
-        @app.route("/api/projects/<int:project_id>", methods=["DELETE"])
+        @app.route("/projects/<int:project_id>", methods=["DELETE"])
         def delete_project(project_id: int):
             self.projects_repo.delete(project_id)
             logger.info("Deleted project id=%s", project_id)
             return jsonify({"success": True}), 200
 
-        @app.route("/api/projects/<int:project_id>", methods=["PUT"])
+        @app.route("/projects/<int:project_id>", methods=["PUT"])
         def update_project(project_id: int):
             data = ValidationService.require_json({"name", "clientId"})
             self.projects_repo.update(project_id, data["name"], data["clientId"])
             logger.info("Updated project id=%s", project_id)
             return jsonify({"id": project_id, "name": data["name"], "clientId": data["clientId"]}), 200
 
-        @app.route("/api/assignments", methods=["GET"])
+        @app.route("/assignments", methods=["GET"])
         def get_assignments():
             logger.info("Listing assignments")
             assignments = [
@@ -705,7 +710,7 @@ class ResourcePlannerAPI:
             ]
             return jsonify(assignments)
 
-        @app.route("/api/assignments", methods=["POST"])
+        @app.route("/assignments", methods=["POST"])
         def add_assignment():
             if not request.is_json:
                 abort(400, description="Request must be JSON")
@@ -733,7 +738,7 @@ class ResourcePlannerAPI:
                 201,
             )
 
-        @app.route("/api/assignments/<int:assignment_id>", methods=["PUT"])
+        @app.route("/assignments/<int:assignment_id>", methods=["PUT"])
         def update_assignment(assignment_id: int):
             if not request.is_json:
                 abort(400, description="Request must be JSON")
@@ -763,27 +768,27 @@ class ResourcePlannerAPI:
                 200,
             )
 
-        @app.route("/api/assignments/<int:assignment_id>", methods=["DELETE"])
+        @app.route("/assignments/<int:assignment_id>", methods=["DELETE"])
         def delete_assignment(assignment_id: int):
             self.assignments_repo.delete(assignment_id)
             logger.info("Deleted assignment id=%s", assignment_id)
             return jsonify({"success": True}), 200
 
-        @app.route("/api/bulk-upload/people", methods=["POST"])
+        @app.route("/bulk-upload/people", methods=["POST"])
         def bulk_upload_people():
             data = ValidationService.require_json({"people"})
             added = self.bulk_service.bulk_people(data["people"])
             logger.info("Bulk uploaded %s people", len(added))
             return jsonify({"added": added}), 201
 
-        @app.route("/api/bulk-upload/clients", methods=["POST"])
+        @app.route("/bulk-upload/clients", methods=["POST"])
         def bulk_upload_clients():
             data = ValidationService.require_json({"clients"})
             added = self.bulk_service.bulk_clients(data["clients"])
             logger.info("Bulk uploaded %s clients", len(added))
             return jsonify({"added": added}), 201
 
-        @app.route("/api/bulk-upload/projects", methods=["POST"])
+        @app.route("/bulk-upload/projects", methods=["POST"])
         def bulk_upload_projects():
             data = ValidationService.require_json({"projects"})
             try:
@@ -793,7 +798,7 @@ class ResourcePlannerAPI:
             logger.info("Bulk uploaded %s projects", len(added))
             return jsonify({"added": added}), 201
 
-        @app.route("/api/bulk-upload/assignments", methods=["POST"])
+        @app.route("/bulk-upload/assignments", methods=["POST"])
         def bulk_upload_assignments():
             data = ValidationService.require_json({"assignments"})
             try:
@@ -840,7 +845,7 @@ class ResourcePlannerAPI:
             logger.info("Bulk uploaded %s assignments", len(added))
             return jsonify({"added": added}), 201
 
-        @app.route("/api/clear-all", methods=["POST"])
+        @app.route("/clear-all", methods=["POST"])
         def clear_all():
             with self.connection_provider.get_connection() as conn:
                 conn.execute(text("DELETE FROM assignments"))
@@ -849,7 +854,7 @@ class ResourcePlannerAPI:
                 conn.execute(text("DELETE FROM people"))
             return jsonify({"success": True}), 200
 
-        @app.route("/api/health", methods=["GET"])
+        @app.route("/health", methods=["GET"])
         def health_check():
             return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()}), 200
 
@@ -861,15 +866,15 @@ class ResourcePlannerAPI:
     def run(self) -> None:
         host = os.environ.get("BACKEND_HOST", "127.0.0.1")
         port = int(os.environ.get("BACKEND_PORT", "8000"))
-        logger.info("🚀 Backend server starting...")
-        logger.info("📊 Database: %s", self.config.database_url)
-        logger.info("🌐 API running on: http://%s:%s", host, port)
-        self.app.run(debug=False, host=host, port=port)
+        logger.info("Backend server starting...")
+        logger.info("Database: %s", self.config.database_url)
+        logger.info("API running on: http://%s:%s", host, port)
+        self.app.run(debug=True, host=host, port=port)
 
 
-config = DatabaseConfig()
-api = ResourcePlannerAPI(config)
-app = api.app
+#config = DatabaseConfig()
+#api = ResourcePlannerAPI(config)
+#app = api.app
 
 if __name__ == "__main__":
     api.init_database()
