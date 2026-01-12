@@ -897,10 +897,19 @@ class ResourcePlannerAPI:
         logger.info("API running on: http://%s:%s", host, port)
         self.app.run(debug=True, host=host, port=port)
 
-if __name__ == "__main__":
+
+def create_app() -> Flask:
+    """Create the Flask app for WSGI servers."""
+
     config = DatabaseConfig()
     api = ResourcePlannerAPI(config)
-    app = api.app
-    application = app
     api.init_database()
-    api.run()
+    return api.app
+
+
+application = create_app()
+app = application
+
+
+if __name__ == "__main__":
+    ResourcePlannerAPI(DatabaseConfig()).run()
