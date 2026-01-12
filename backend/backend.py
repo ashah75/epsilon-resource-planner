@@ -40,12 +40,10 @@ class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
     database_url: str = os.environ.get("DATABASE_URL", "")
-    print("DATABASE_URL set?:", bool(os.getenv("DATABASE_URL")))
+
     def __post_init__(self) -> None:
         if not self.database_url:
             raise ValueError("DATABASE_URL is required and cannot be empty.")
-        if self.database_url.startswith("sqlite"):
-            raise ValueError("SQLite is not supported. Provide a SQL*Plus/Oracle DATABASE_URL.")
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +102,8 @@ class BaseRepository:
 
     def _insert_returning_id(self, query: str, parameters: Mapping[str, Any]) -> int:
         with self._connection_provider.get_connection() as conn:
-            if conn.dialect.name == "oracle":
+            dialect = conn.dialect.name
+            if dialect == "oracle":
                 oracle_query = f"{query} RETURNING id INTO :id"
                 statement = text(oracle_query).bindparams(
                     bindparam("id", None, type_=Integer, isoutparam=True)
@@ -114,9 +113,22 @@ class BaseRepository:
                 if isinstance(out_value, (list, tuple)):
                     out_value = out_value[0] if out_value else None
                 return int(out_value)
-            statement = text(f"{query} RETURNING id")
-            result = conn.execute(statement, dict(parameters))
-            return int(result.scalar_one())
+            if dialect in {"postgresql", "postgres"}:
+                statement = text(f"{query} RETURNING id")
+                result = conn.execute(statement, dict(parameters))
+                return int(result.scalar_one())
+
+            result = conn.execute(text(query), dict(parameters))
+            inserted_id = result.lastrowid
+            if inserted_id is None:
+                if dialect in {"mysql", "mariadb"}:
+                    inserted_id = conn.execute(text("SELECT LAST_INSERT_ID()")).scalar_one()
+                elif dialect == "sqlite":
+                    inserted_id = conn.execute(text("SELECT last_insert_rowid()")).scalar_one()
+
+            if inserted_id is None:
+                raise ValueError(f"Unable to determine inserted id for dialect '{dialect}'")
+            return int(inserted_id)
 
 
 class PeopleRepository(BaseRepository):
@@ -491,6 +503,21 @@ class DatabaseInitializer:
         logger.info("Schema initialization is disabled; ensure your SQL*Plus schema is applied.")
 
 
+class ScriptNamePrefixMiddleware:
+    """Ensure SCRIPT_NAME is included in PATH_INFO for routing."""
+
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        script_name = environ.get("SCRIPT_NAME", "")
+        path_info = environ.get("PATH_INFO", "")
+        if script_name and path_info and not path_info.startswith(script_name):
+            environ["PATH_INFO"] = f"{script_name.rstrip('/')}{path_info}"
+            environ["SCRIPT_NAME"] = ""
+        return self.app(environ, start_response)
+
+
 # ---------------------------------------------------------------------------
 # API Application
 # ---------------------------------------------------------------------------
@@ -500,6 +527,7 @@ class ResourcePlannerAPI:
     def __init__(self, config: DatabaseConfig) -> None:
         self.config = config
         self.app = Flask(__name__)
+        self.app.wsgi_app = ScriptNamePrefixMiddleware(self.app.wsgi_app)
         allowed_origins = [
             origin.strip()
             for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:4173").split(",")
@@ -869,10 +897,19 @@ class ResourcePlannerAPI:
         logger.info("API running on: http://%s:%s", host, port)
         self.app.run(debug=True, host=host, port=port)
 
-if __name__ == "__main__":
+
+def create_app() -> Flask:
+    """Create the Flask app for WSGI servers."""
+
     config = DatabaseConfig()
     api = ResourcePlannerAPI(config)
-    app = api.app
-    application = app
     api.init_database()
-    api.run()
+    return api.app
+
+
+application = create_app()
+app = application
+
+
+if __name__ == "__main__":
+    ResourcePlannerAPI(DatabaseConfig()).run()

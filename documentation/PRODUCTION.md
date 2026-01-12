@@ -17,7 +17,10 @@ You can configure the backend, frontend, and Nginx URLs with environment variabl
     ```bash
     export DATABASE_URL="oracle+oracledb://user:password@host:1521/ORCLPDB1"
     ```
-  - **SQLite is not supported.** You must supply a SQL*Plus/Oracle `DATABASE_URL`.
+  - Example for MySQL (PyMySQL driver):
+    ```bash
+    export DATABASE_URL="mysql+pymysql://user:password@host:3306/epsilon_planner"
+    ```
 
 - **Backend bind address/port** (optional for dev):
   - `BACKEND_HOST` (default: `127.0.0.1`)
@@ -76,6 +79,13 @@ The default `backend/uwsgi.ini` binds to `127.0.0.1:8000`.
 The backend does **not** auto-create tables for Oracle. Run the schema script once:
 ```bash
 sqlplus user/password@//host:1521/ORCLPDB1 @documentation/oracle-schema.sql
+```
+
+### 3b) Initialize the MySQL schema (required)
+Create the database (if needed) and run the schema script once:
+```bash
+mysql -u user -p -h host -e "CREATE DATABASE IF NOT EXISTS epsilon_planner CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u user -p -h host epsilon_planner < documentation/mysql-schema.sql
 ```
 
 ### 4) Configure and start Apache
@@ -175,5 +185,6 @@ export ALLOWED_ORIGINS="https://resource-planner.example.com"
 
 ## Notes
 - For Oracle, install an Oracle DB driver compatible with SQLAlchemy (e.g., `oracledb`).
+- For MySQL, install a SQLAlchemy-compatible driver (e.g., `pymysql`).
 - `DATABASE_URL` can target any SQLAlchemy-supported database.
-- SQLite schema initialization is skipped for non-SQLite databases; make sure your schema exists when using Oracle.
+- Schema initialization is not automatic; apply the appropriate schema for your database.
