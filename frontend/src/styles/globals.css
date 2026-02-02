@@ -624,6 +624,13 @@ body {
   border: 1px solid var(--border);
 }
 
+.modal form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .modal-large {
   max-width: 700px;
 }
@@ -667,6 +674,7 @@ body {
   padding: 1.5rem;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -675,6 +683,7 @@ body {
   gap: 0.75rem;
   padding: 1.5rem;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 /* Enhanced Form styles */
