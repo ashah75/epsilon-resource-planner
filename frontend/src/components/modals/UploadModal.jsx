@@ -187,15 +187,23 @@ export default function UploadModal({ isOpen, onClose }) {
           throw new Error('Invalid upload type');
       }
 
+      const addedCount = result?.added?.length ?? 0;
+      const recordsLabel = uploadType;
+      const successMessage = addedCount > 0
+        ? `Successfully uploaded ${addedCount} ${recordsLabel}`
+        : `No new ${recordsLabel} were uploaded (all entries already exist)`;
+
       setUploadResult({
         success: true,
-        message: `Successfully uploaded ${parsedRows.length} ${uploadType}`
+        message: successMessage
       });
 
-      // Close modal after 2 seconds
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      if (addedCount > 0) {
+        // Close modal after 2 seconds
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      }
     } catch (error) {
       setErrors({ 
         submit: error.message || 'Failed to upload data' 
