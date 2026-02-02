@@ -39,7 +39,7 @@ load_dotenv(dotenv_path=ENV_PATH, override=False)
 class DatabaseConfig:
     """Configuration holder for database connectivity."""
 
-    database_url: str = os.environ.get("DATABASE_URL", "")
+    database_url: str = os.environ.get("PS_CALENDAR_DATABASE_URL", "")
 
     def __post_init__(self) -> None:
         if not self.database_url:
@@ -530,7 +530,7 @@ class ResourcePlannerAPI:
         self.app.wsgi_app = ScriptNamePrefixMiddleware(self.app.wsgi_app)
         allowed_origins = [
             origin.strip()
-            for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:4173").split(",")
+            for origin in os.environ.get("PS_CALENDAR_ALLOWED_ORIGINS", "http://localhost:4173").split(",")
             if origin.strip()
         ]
         CORS(self.app, resources={r"/api/*": {"origins": allowed_origins}})
@@ -890,17 +890,16 @@ class ResourcePlannerAPI:
         self.db_initializer.initialize()
 
     def run(self) -> None:
-        host = os.environ.get("BACKEND_HOST", "127.0.0.1")
-        port = int(os.environ.get("BACKEND_PORT", "8000"))
+        host = os.environ.get("PS_CALENDAR_BACKEND_HOST", "127.0.0.1")
+        port = int(os.environ.get("PS_CALENDAR_BACKEND_PORT", "8000"))
         logger.info("Backend server starting...")
         logger.info("Database: %s", self.config.database_url)
-        logger.info("API running on: http://%s:%s", host, port)
+        logger.info("API running on: %s:%s", host, port)
         self.app.run(debug=True, host=host, port=port)
 
 
 def create_app() -> Flask:
     """Create the Flask app for WSGI servers."""
-
     config = DatabaseConfig()
     api = ResourcePlannerAPI(config)
     api.init_database()

@@ -60,7 +60,7 @@ export function AppProvider({ children }) {
         percentage: a.percentage || 100
       })));
     } catch (err) {
-      setError('Failed to load data. Make sure the backend is running on http://localhost:5000');
+      setError('Failed to load data. Make sure the backend is running and try again.');
       console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
