@@ -162,10 +162,12 @@ export default function Sidebar({ openModal }) {
                     </div>
                   </div>
                   
-                  <div
+                  <button
+                    type="button"
                     style={{
                       width: '32px',
                       height: '32px',
+                      padding: 0,
                       pointerEvents: 'auto', // Re-enable for buttons
                       display: 'flex',
                       alignItems: 'center',
@@ -176,7 +178,11 @@ export default function Sidebar({ openModal }) {
                       cursor: 'pointer',
                       transition: 'all 0.2s ease'
                     }}
-                    onClick={() => handleDelete('project', project.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDelete('project', project.id);
+                    }}
+                    aria-label={`Delete ${project.name}`}
                   >
                     <svg 
                       width="16" 
@@ -189,7 +195,7 @@ export default function Sidebar({ openModal }) {
                       <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
                       <path d="M10 11v6M14 11v6"/>
                     </svg>
-                  </div>
+                  </button>
                 </div>
               ))}
             </CollapsibleGroup>
@@ -266,10 +272,12 @@ export default function Sidebar({ openModal }) {
                     </div>
                   </div>
                   
-                  <div
+                  <button
+                    type="button"
                     style={{
                       width: '32px',
                       height: '32px',
+                      padding: 0,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -279,7 +287,11 @@ export default function Sidebar({ openModal }) {
                       cursor: 'pointer',
                       transition: 'all 0.2s ease'
                     }}
-                    onClick={() => handleDelete('person', person.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDelete('person', person.id);
+                    }}
+                    aria-label={`Delete ${person.name}`}
                   >
                     <svg 
                       width="16" 
@@ -292,7 +304,7 @@ export default function Sidebar({ openModal }) {
                       <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
                       <path d="M10 11v6M14 11v6"/>
                     </svg>
-                  </div>
+                  </button>
                 </div>
               ))}
             </CollapsibleGroup>
@@ -369,10 +381,12 @@ export default function Sidebar({ openModal }) {
                     </div>
                   </div>
                   
-                  <div
+                  <button
+                    type="button"
                     style={{
                       width: '32px',
                       height: '32px',
+                      padding: 0,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -382,7 +396,11 @@ export default function Sidebar({ openModal }) {
                       cursor: 'pointer',
                       transition: 'all 0.2s ease'
                     }}
-                    onClick={() => handleDelete('client', client.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDelete('client', client.id);
+                    }}
+                    aria-label={`Delete ${client.name}`}
                   >
                     <svg 
                       width="16" 
@@ -395,7 +413,7 @@ export default function Sidebar({ openModal }) {
                       <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
                       <path d="M10 11v6M14 11v6"/>
                     </svg>
-                  </div>
+                  </button>
                 </div>
               );
             })}

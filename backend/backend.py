@@ -392,15 +392,24 @@ class BulkUploadService:
     def bulk_people(self, people_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for person in people_payload:
-            new_id = self._people_repo.create(person["name"], person["role"])
-            added.append({"id": new_id, "name": person["name"], "role": person["role"]})
+            name = str(person["name"]).strip()
+            role = str(person["role"]).strip()
+            existing_id = self._people_repo.get_id_by_name(name)
+            if existing_id is not None:
+                continue
+            new_id = self._people_repo.create(name, role)
+            added.append({"id": new_id, "name": name, "role": role})
         return added
 
     def bulk_clients(self, clients_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
         added: List[Dict[str, Any]] = []
         for client in clients_payload:
-            new_id = self._clients_repo.create(client["name"])
-            added.append({"id": new_id, "name": client["name"]})
+            name = str(client["name"]).strip()
+            existing_id = self._clients_repo.get_id_by_name(name)
+            if existing_id is not None:
+                continue
+            new_id = self._clients_repo.create(name)
+            added.append({"id": new_id, "name": name})
         return added
 
     def bulk_projects(self, projects_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -415,8 +424,12 @@ class BulkUploadService:
                 if client_id is None:
                     raise ValueError(f"Client not found: {client_name}")
 
-            new_id = self._projects_repo.create(project["name"], client_id)
-            added.append({"id": new_id, "name": project["name"], "clientId": client_id})
+            name = str(project["name"]).strip()
+            existing_id = self._projects_repo.get_id_by_name_and_client(name, client_id)
+            if existing_id is not None:
+                continue
+            new_id = self._projects_repo.create(name, client_id)
+            added.append({"id": new_id, "name": name, "clientId": client_id})
         return added
 
     def bulk_assignments(self, assignments_payload: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -474,6 +487,11 @@ class BulkUploadService:
                 percentage = int(percentage)
             except (TypeError, ValueError):
                 raise ValueError("Assignment percentage must be a number") from None
+            existing_id = self._assignments_repo.find_existing(
+                person_id, project_id, start_date, end_date
+            )
+            if existing_id is not None:
+                continue
             new_id = self._assignments_repo.create(
                 person_id,
                 project_id,

@@ -11,6 +11,10 @@ import { parseCSV } from '../../utils/export';
  */
 export default function UploadModal({ isOpen, onClose }) {
   const { 
+    people,
+    clients,
+    projects,
+    assignments,
     bulkUploadPeople, 
     bulkUploadClients, 
     bulkUploadProjects, 
@@ -168,6 +172,90 @@ export default function UploadModal({ isOpen, onClose }) {
     setIsSubmitting(true);
     setErrors({});
 
+    const normalizeValue = (value) => {
+      if (value === null || value === undefined) return '';
+      return String(value).trim();
+    };
+
+    const normalizeKey = (value) => normalizeValue(value).toLowerCase();
+
+    const buildDuplicateLabels = () => {
+      if (!parsedRows.length) return [];
+      switch (uploadType) {
+        case 'people': {
+          const existingNames = new Set(people.map(person => normalizeKey(person.name)));
+          return parsedRows
+            .filter(row => existingNames.has(normalizeKey(row.name)))
+            .map(row => `Person "${normalizeValue(row.name)}" already exists`);
+        }
+        case 'clients': {
+          const existingNames = new Set(clients.map(client => normalizeKey(client.name)));
+          return parsedRows
+            .filter(row => existingNames.has(normalizeKey(row.name)))
+            .map(row => `Client "${normalizeValue(row.name)}" already exists`);
+        }
+        case 'projects': {
+          const clientNameToId = new Map(
+            clients.map(client => [normalizeKey(client.name), client.id])
+          );
+          const existingProjects = new Set(
+            projects.map(project => {
+              const client = clients.find(c => c.id === project.clientId);
+              return `${normalizeKey(project.name)}::${normalizeKey(client?.name || '')}`;
+            })
+          );
+          return parsedRows
+            .filter(row => {
+              const projectName = normalizeKey(row.name);
+              const clientName = normalizeKey(row.client_name);
+              if (!projectName || !clientName) return false;
+              if (!clientNameToId.has(clientName)) return false;
+              return existingProjects.has(`${projectName}::${clientName}`);
+            })
+            .map(row => `Project "${normalizeValue(row.name)}" for client "${normalizeValue(row.client_name)}" already exists`);
+        }
+        case 'assignments': {
+          const personByName = new Map(
+            people.map(person => [normalizeKey(person.name), person.id])
+          );
+          const clientByName = new Map(
+            clients.map(client => [normalizeKey(client.name), client.id])
+          );
+          const projectByNameClient = new Map(
+            projects.map(project => {
+              const client = clients.find(c => c.id === project.clientId);
+              return [
+                `${normalizeKey(project.name)}::${normalizeKey(client?.name || '')}`,
+                project.id
+              ];
+            })
+          );
+          const existingAssignments = new Set(
+            assignments.map(assignment => {
+              return `${assignment.personId}::${assignment.projectId}::${assignment.startDate}::${assignment.endDate}`;
+            })
+          );
+          return parsedRows
+            .filter(row => {
+              const personId = personByName.get(normalizeKey(row.person_name));
+              const clientId = clientByName.get(normalizeKey(row.client_name));
+              const projectId = projectByNameClient.get(
+                `${normalizeKey(row.project_name)}::${normalizeKey(row.client_name)}`
+              );
+              const startDate = normalizeValue(row.start_date);
+              const endDate = normalizeValue(row.end_date);
+              if (!personId || !clientId || !projectId || !startDate || !endDate) return false;
+              return existingAssignments.has(`${personId}::${projectId}::${startDate}::${endDate}`);
+            })
+            .map(row => `Assignment for "${normalizeValue(row.person_name)}" on "${normalizeValue(row.project_name)}" (${normalizeValue(row.client_name)}) ${normalizeValue(row.start_date)} to ${normalizeValue(row.end_date)} already exists`);
+        }
+        default:
+          return [];
+      }
+    };
+
+    const duplicateLabels = buildDuplicateLabels();
+
     try {
       let result;
       switch (uploadType) {
@@ -187,15 +275,24 @@ export default function UploadModal({ isOpen, onClose }) {
           throw new Error('Invalid upload type');
       }
 
+      const addedCount = result?.added?.length ?? 0;
+      const recordsLabel = uploadType;
+      const successMessage = addedCount > 0
+        ? `Successfully uploaded ${addedCount} ${recordsLabel}`
+        : `No new ${recordsLabel} were uploaded (all entries already exist)`;
+
       setUploadResult({
         success: true,
-        message: `Successfully uploaded ${parsedRows.length} ${uploadType}`
+        message: successMessage,
+        duplicates: duplicateLabels
       });
 
-      // Close modal after 2 seconds
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      if (addedCount > 0 && duplicateLabels.length === 0) {
+        // Close modal after 2 seconds
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      }
     } catch (error) {
       setErrors({ 
         submit: error.message || 'Failed to upload data' 
@@ -231,7 +328,14 @@ export default function UploadModal({ isOpen, onClose }) {
             
             {uploadResult && uploadResult.success && (
               <div className="success-message">
-                ✓ {uploadResult.message}
+                <div>✓ {uploadResult.message}</div>
+                {uploadResult.duplicates?.length > 0 && (
+                  <ul>
+                    {uploadResult.duplicates.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
             
